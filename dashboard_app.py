@@ -16,13 +16,17 @@ EXPECTED_COLUMNS = {
     'MUNICIPIO': 'string',
     'BAIRRO': 'string',
     'TIPO_CADASTRO': 'string',
-    'STATUS': 'string',
+    'SITUACAO_LIGACAO': 'string',
     'IRREGULARIDADE_IDENTIFICADA': 'string',
     'SITUACAO_HIDROMETRO': 'string',
     'TIPO_EDIFICACAO': 'string',
     'FONTE_ALTERNATIVA': 'string',
-    'NUMERO_MORADORES': 'float64',
-    'CAPACIDADE_CAIXA_LITROS': 'float64'
+    'TOTAL_DE_MORADORES': 'float64',
+    'QUANTOS_LITROS_TOTAIS': 'float64',
+    'PADRAO_DO_IMOVEL': 'string',
+    'LOGRADOURO': 'string',
+    'QUADRA': 'string',
+    'TIPO_VISITA': 'string'
 }
 
 # Função para carregar e converter logo em base64
@@ -38,30 +42,19 @@ def get_logo_base64():
         logger.error(f"Erro ao carregar logo: {str(e)}")
     return None
 
-# Load the cleaned data
+# Load the data from Excel
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_csv(
-            "cleaned_client_data.csv",
-            encoding='utf-8',
-            sep=',',
-            low_memory=False
+        # Carregar diretamente do Excel
+        df = pd.read_excel(
+            "BASE_GERAL_2025_10_25 VS01.xlsx",
+            engine='openpyxl'
         )
         
-        # Mapeamento de colunas
-        column_mapping = {
-            'TOTAL_DE_MORADORES': 'NUMERO_MORADORES',
-            'QUANTOS_LITROS_TOTAIS': 'CAPACIDADE_CAIXA_LITROS',
-            'STATUS': 'STATUS_LIGACAO',
-            'SITUACAO_HIDROMETRO': 'POSSUI_HIDROMETRO',
-            'TIPO_EDIFICACAO': 'PADRAO_IMOVEL'
-        }
+        logger.info(f"Dados carregados: {len(df)} registros")
         
-        for old_col, new_col in column_mapping.items():
-            if old_col in df.columns:
-                df[new_col] = df[old_col]
-
+        # Processar colunas
         for col, dtype in EXPECTED_COLUMNS.items():
             if col in df.columns:
                 try:
@@ -72,10 +65,18 @@ def load_data():
                 except Exception as e:
                     logger.error(f"Erro ao converter coluna {col}: {str(e)}")
 
-        df['POSSUI_HIDROMETRO'] = df['SITUACAO_HIDROMETRO'].apply(
-            lambda x: 'SIM' if x in ['NORMAL', 'QUEBRADO'] else 'NÃO'
-        )
+        # Criar coluna auxiliar para hidrômetro
+        if 'SITUACAO_HIDROMETRO' in df.columns:
+            df['POSSUI_HIDROMETRO'] = df['SITUACAO_HIDROMETRO'].apply(
+                lambda x: 'SIM' if pd.notna(x) and str(x).upper() in ['NORMAL', 'QUEBRADO', 'INSTALADO'] else 'NÃO'
+            )
         
+        # Garantir que colunas numéricas existam
+        if 'TOTAL_DE_MORADORES' not in df.columns:
+            df['TOTAL_DE_MORADORES'] = 0
+        if 'QUANTOS_LITROS_TOTAIS' not in df.columns:
+            df['QUANTOS_LITROS_TOTAIS'] = 0
+            
         return df
 
     except Exception as e:
@@ -365,19 +366,37 @@ else:
 # --- Sidebar Filters ---
 st.sidebar.markdown("## 🔍 Filtros")
 
-selected_municipio = st.sidebar.multiselect(
-    "Selecionar Município",
-    options=df["MUNICIPIO"].unique(),
-    default=df["MUNICIPIO"].unique()
-)
+if not df.empty:
+    selected_municipio = st.sidebar.multiselect(
+        "Selecionar Município",
+        options=sorted(df["MUNICIPIO"].unique()),
+        default=sorted(df["MUNICIPIO"].unique())
+    )
 
-selected_bairro = st.sidebar.multiselect(
-    "Selecionar Bairro",
-    options=df[df["MUNICIPIO"].isin(selected_municipio)]["BAIRRO"].unique(),
-    default=df[df["MUNICIPIO"].isin(selected_municipio)]["BAIRRO"].unique()
-)
+    selected_bairro = st.sidebar.multiselect(
+        "Selecionar Bairro",
+        options=sorted(df[df["MUNICIPIO"].isin(selected_municipio)]["BAIRRO"].unique()),
+        default=sorted(df[df["MUNICIPIO"].isin(selected_municipio)]["BAIRRO"].unique())
+    )
 
-df_selection = df[df["MUNICIPIO"].isin(selected_municipio) & df["BAIRRO"].isin(selected_bairro)]
+    # Filtro por STATUS
+    if "STATUS" in df.columns:
+        status_options = sorted([s for s in df["STATUS"].unique() if pd.notna(s)])
+        selected_status = st.sidebar.multiselect(
+            "Selecionar Status",
+            options=status_options,
+            default=status_options
+        )
+        df_selection = df[
+            df["MUNICIPIO"].isin(selected_municipio) & 
+            df["BAIRRO"].isin(selected_bairro) &
+            df["STATUS"].isin(selected_status)
+        ]
+    else:
+        df_selection = df[df["MUNICIPIO"].isin(selected_municipio) & df["BAIRRO"].isin(selected_bairro)]
+else:
+    st.error("Não foi possível carregar os dados.")
+    st.stop()
 
 # --- KPI Metrics Section ---
 st.markdown('<div class="section-title">📈 Métricas Principais</div>', unsafe_allow_html=True)
@@ -394,7 +413,10 @@ with col_kpi1:
     """, unsafe_allow_html=True)
 
 with col_kpi2:
-    perc_hidrometro = (df_selection['POSSUI_HIDROMETRO'].value_counts(normalize=True).get('SIM', 0) * 100)
+    if 'POSSUI_HIDROMETRO' in df_selection.columns:
+        perc_hidrometro = (df_selection['POSSUI_HIDROMETRO'].value_counts(normalize=True).get('SIM', 0) * 100)
+    else:
+        perc_hidrometro = 0
     st.markdown(f"""
         <div class="metric-card">
             <div class="metric-icon">💧</div>
@@ -404,7 +426,7 @@ with col_kpi2:
     """, unsafe_allow_html=True)
 
 with col_kpi3:
-    media_moradores = df_selection['NUMERO_MORADORES'].mean()
+    media_moradores = df_selection['TOTAL_DE_MORADORES'].mean() if 'TOTAL_DE_MORADORES' in df_selection.columns else 0
     st.markdown(f"""
         <div class="metric-card">
             <div class="metric-icon">🏠</div>
@@ -414,7 +436,7 @@ with col_kpi3:
     """, unsafe_allow_html=True)
 
 with col_kpi4:
-    ligacao_clandestina = len(df_selection[df_selection['IRREGULARIDADE_IDENTIFICADA'] == 'LIGAÇÃO CLANDESTINA']) if 'IRREGULARIDADE_IDENTIFICADA' in df_selection.columns else 0
+    ligacao_clandestina = len(df_selection[df_selection['IRREGULARIDADE_IDENTIFICADA'].str.contains('CLANDESTINA', case=False, na=False)]) if 'IRREGULARIDADE_IDENTIFICADA' in df_selection.columns else 0
     st.markdown(f"""
         <div class="metric-card">
             <div class="metric-icon">⚠️</div>
@@ -555,8 +577,8 @@ with col5:
 
 st.markdown("---")
 
-# Row 3 - Tipo de Visita
-col6, col7 = st.columns([1.2, 1])
+# Row 3 - Tipo de Visita e Padrão do Imóvel
+col6, col7 = st.columns(2)
 
 with col6:
     if not df_selection.empty and "TIPO_VISITA" in df_selection.columns:
@@ -594,20 +616,51 @@ with col6:
         st.plotly_chart(fig_visita, use_container_width=True, key="visita_chart")
 
 with col7:
-    if not df_selection.empty and "NUMERO_MORADORES" in df_selection.columns:
-        st.markdown("### 📊 Distribuição de Moradores")
+    if not df_selection.empty and "PADRAO_DO_IMOVEL" in df_selection.columns:
+        padrao_dist = df_selection["PADRAO_DO_IMOVEL"].value_counts().reset_index()
+        padrao_dist.columns = ["Padrão", "Quantidade"]
         
-        moradores_stats = df_selection["NUMERO_MORADORES"].describe()
-        
-        col_m1, col_m2 = st.columns(2)
-        
-        with col_m1:
-            st.metric("Mínimo", f"{moradores_stats['min']:.0f}")
-            st.metric("Mediana", f"{moradores_stats['50%']:.1f}")
-        
-        with col_m2:
-            st.metric("Máximo", f"{moradores_stats['max']:.0f}")
-            st.metric("Desvio Padrão", f"{moradores_stats['std']:.2f}")
+        fig_padrao = px.bar(
+            padrao_dist,
+            x="Padrão",
+            y="Quantidade",
+            title="Distribuição por Padrão do Imóvel",
+            color_discrete_sequence=["#00B4D8"]
+        )
+        fig_padrao.update_layout(
+            template="plotly_white",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#1a1a1a", size=12, family="Inter"),
+            title_font=dict(size=16, color="#0077B6", family="Inter"),
+            xaxis_title="Padrão",
+            yaxis_title="Quantidade",
+            showlegend=False,
+            margin=dict(t=50, b=40, l=40, r=20)
+        )
+        st.plotly_chart(fig_padrao, use_container_width=True, key="padrao_chart")
+
+st.markdown("---")
+
+# Estatísticas de Moradores
+if not df_selection.empty and "TOTAL_DE_MORADORES" in df_selection.columns:
+    st.markdown('<div class="section-title">👨‍👩‍👧‍👦 Análise de Moradores</div>', unsafe_allow_html=True)
+    
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    
+    moradores_stats = df_selection["TOTAL_DE_MORADORES"].describe()
+    
+    with col_m1:
+        st.metric("Mínimo", f"{moradores_stats['min']:.0f}")
+    
+    with col_m2:
+        st.metric("Média", f"{moradores_stats['mean']:.1f}")
+    
+    with col_m3:
+        st.metric("Mediana", f"{moradores_stats['50%']:.1f}")
+    
+    with col_m4:
+        st.metric("Máximo", f"{moradores_stats['max']:.0f}")
 
 # Footer com estatísticas
 st.markdown(f"""
