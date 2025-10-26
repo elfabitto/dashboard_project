@@ -767,6 +767,182 @@ if not df_selection.empty and "TOTAL_DE_MORADORES" in df_selection.columns:
     with col_m4:
         st.metric("Máximo", f"{moradores_stats['max']:.0f}")
 
+st.markdown("---")
+
+# --- Nova Aba de Produtividade ---
+st.markdown('<div class="section-title">🏆 Produtividade de Reambuladores</div>', unsafe_allow_html=True)
+
+# Filtros de data
+col_filtro1, col_filtro2, col_filtro3 = st.columns([2, 2, 2])
+
+with col_filtro1:
+    tipo_filtro = st.selectbox(
+        "Tipo de Filtro",
+        ["Por Período", "Por Mês"],
+        key="tipo_filtro_reambulador"
+    )
+
+# Converter DATA_COLETA para datetime se existir
+if 'DATA_COLETA' in df_selection.columns:
+    df_selection_copy = df_selection.copy()
+    df_selection_copy['DATA_COLETA'] = pd.to_datetime(df_selection_copy['DATA_COLETA'], errors='coerce')
+    
+    if tipo_filtro == "Por Período":
+        with col_filtro2:
+            # Obter datas mínima e máxima
+            data_min = df_selection_copy['DATA_COLETA'].min()
+            data_max = df_selection_copy['DATA_COLETA'].max()
+            
+            if pd.notna(data_min) and pd.notna(data_max):
+                data_inicio = st.date_input(
+                    "Data Início",
+                    value=data_min.date(),
+                    min_value=data_min.date(),
+                    max_value=data_max.date(),
+                    key="data_inicio_reambulador"
+                )
+        
+        with col_filtro3:
+            if pd.notna(data_min) and pd.notna(data_max):
+                data_fim = st.date_input(
+                    "Data Fim",
+                    value=data_max.date(),
+                    min_value=data_min.date(),
+                    max_value=data_max.date(),
+                    key="data_fim_reambulador"
+                )
+                
+                # Filtrar por período
+                df_filtrado = df_selection_copy[
+                    (df_selection_copy['DATA_COLETA'].dt.date >= data_inicio) &
+                    (df_selection_copy['DATA_COLETA'].dt.date <= data_fim)
+                ]
+            else:
+                st.warning("Não há dados de data disponíveis")
+                df_filtrado = df_selection_copy
+    else:  # Por Mês
+        with col_filtro2:
+            # Criar lista de meses disponíveis
+            df_selection_copy['ANO_MES'] = df_selection_copy['DATA_COLETA'].dt.to_period('M')
+            meses_disponiveis = sorted(df_selection_copy['ANO_MES'].dropna().unique(), reverse=True)
+            
+            if len(meses_disponiveis) > 0:
+                mes_selecionado = st.selectbox(
+                    "Selecione o Mês",
+                    options=meses_disponiveis,
+                    format_func=lambda x: x.strftime('%B/%Y') if pd.notna(x) else 'N/A',
+                    key="mes_reambulador"
+                )
+                
+                # Filtrar por mês
+                df_filtrado = df_selection_copy[df_selection_copy['ANO_MES'] == mes_selecionado]
+            else:
+                st.warning("Não há dados de data disponíveis")
+                df_filtrado = df_selection_copy
+else:
+    st.warning("Coluna DATA_COLETA não encontrada nos dados")
+    df_filtrado = df_selection
+
+st.markdown("---")
+
+# Criar ranking de reambuladores
+if 'REAMBULADOR' in df_filtrado.columns and not df_filtrado.empty:
+    # Contar quantas vezes cada reambulador aparece (número de visitas)
+    ranking = df_filtrado['REAMBULADOR'].value_counts().reset_index()
+    ranking.columns = ['Reambulador', 'Número de Visitas']
+    
+    # Remover valores nulos ou vazios
+    ranking = ranking[ranking['Reambulador'].notna() & (ranking['Reambulador'] != '')]
+    
+    if not ranking.empty:
+        # Métricas principais
+        col_m1, col_m2, col_m3 = st.columns(3)
+        
+        with col_m1:
+            st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-icon">👥</div>
+                    <div class="metric-label">Total de Reambuladores</div>
+                    <div class="metric-value">{len(ranking)}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col_m2:
+            st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-icon">📊</div>
+                    <div class="metric-label">Total de Visitas</div>
+                    <div class="metric-value">{ranking['Número de Visitas'].sum():,}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col_m3:
+            st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-icon">🏆</div>
+                    <div class="metric-label">Melhor Performance</div>
+                    <div class="metric-value">{ranking.iloc[0]['Número de Visitas']:,} visitas</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Gráfico de ranking e tabela
+        col_grafico, col_tabela = st.columns([2, 1])
+        
+        with col_grafico:
+            # Gráfico de barras horizontal
+            fig_ranking = go.Figure(data=[
+                go.Bar(
+                    y=ranking['Reambulador'],
+                    x=ranking['Número de Visitas'],
+                    orientation='h',
+                    marker=dict(
+                        color=ranking['Número de Visitas'],
+                        colorscale='Blues',
+                        line=dict(color='#0077B6', width=1)
+                    ),
+                    text=ranking['Número de Visitas'],
+                    textposition='outside',
+                    hovertemplate="<b>%{y}</b><br>Visitas: %{x}<extra></extra>"
+                )
+            ])
+            
+            fig_ranking.update_layout(
+                template="plotly_white",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#1a1a1a", size=12, family="Inter"),
+                title="Ranking de Reambuladores por Número de Visitas",
+                title_font=dict(size=18, color="#0077B6", family="Inter"),
+                xaxis_title="Número de Visitas",
+                yaxis_title="Reambulador",
+                height=max(400, len(ranking) * 25),
+                showlegend=False,
+                yaxis={"categoryorder": "total ascending"},
+                margin=dict(t=60, b=40, l=200, r=40)
+            )
+            
+            st.plotly_chart(fig_ranking, use_container_width=True, key="ranking_reambulador")
+        
+        with col_tabela:
+            st.markdown("#### 📋 Ranking Completo")
+            
+            # Adicionar posição no ranking
+            ranking_display = ranking.copy()
+            ranking_display.insert(0, 'Posição', range(1, len(ranking_display) + 1))
+            
+            st.dataframe(
+                ranking_display,
+                hide_index=True,
+                use_container_width=True,
+                height=max(400, len(ranking) * 35 + 38)
+            )
+    else:
+        st.warning("Não há dados de reambuladores para o período selecionado")
+else:
+    st.warning("Coluna REAMBULADOR não encontrada nos dados ou não há dados disponíveis")
+
 # Footer com estatísticas
 st.markdown(f"""
     <div class="footer-stats">
