@@ -447,49 +447,108 @@ with col_kpi4:
 
 st.markdown("---")
 
-# --- Gráfico de STATUS ---
-if not df_selection.empty and "STATUS" in df_selection.columns:
-    st.markdown('<div class="section-title">📋 Distribuição por Status</div>', unsafe_allow_html=True)
-    
-    status_dist = df_selection["STATUS"].value_counts().reset_index()
-    status_dist.columns = ["Status", "Contagem"]
-    
-    # Definir cores específicas para cada status
-    color_map = {
-        'COLETAR': '#0077B6',  # Azul
-        'VALIDAR': '#FFD700',  # Amarelo
-        'REAMBULADO': '#28A745',  # Verde
-        'AGUARDANDO CADASTRO': '#FF8C00',  # Laranja
-        'EXCLUIR': '#000000',  # Preto
-        'CORRIGIR': '#DC3545'  # Vermelho
-    }
-    
-    # Criar lista de cores na ordem dos status
-    colors = [color_map.get(status.upper(), '#808080') for status in status_dist['Status']]
-    
-    fig_status = px.pie(
-        status_dist,
-        values="Contagem",
-        names="Status",
-        title="Distribuição por Status do Cadastro",
-        color_discrete_sequence=colors,
-        hole=0.4
-    )
-    fig_status.update_layout(
-        template="plotly_white",
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#1a1a1a", size=14, family="Inter"),
-        title_font=dict(size=18, color="#0077B6", family="Inter"),
-        margin=dict(t=60, b=40, l=40, r=40),
-        height=500
-    )
-    fig_status.update_traces(
-        textposition='inside',
-        textinfo='percent+label',
-        textfont_size=12
-    )
-    st.plotly_chart(fig_status, use_container_width=True, key="status_chart")
+# --- Gráfico de STATUS e Mapa ---
+st.markdown('<div class="section-title">📋 Distribuição por Status e Localização</div>', unsafe_allow_html=True)
+
+col_status, col_mapa = st.columns(2)
+
+with col_status:
+    if not df_selection.empty and "STATUS" in df_selection.columns:
+        status_dist = df_selection["STATUS"].value_counts().reset_index()
+        status_dist.columns = ["Status", "Contagem"]
+        
+        # Definir cores específicas para cada status
+        color_map = {
+            'COLETAR': '#0077B6',  # Azul
+            'VALIDAR': '#FFD700',  # Amarelo
+            'REAMBULADO': '#28A745',  # Verde
+            'AGUARDANDO CADASTRO': '#FF8C00',  # Laranja
+            'EXCLUIR': '#000000',  # Preto
+            'CORRIGIR': '#DC3545'  # Vermelho
+        }
+        
+        # Criar lista de cores na ordem dos status
+        colors = [color_map.get(status.upper(), '#808080') for status in status_dist['Status']]
+        
+        fig_status = px.pie(
+            status_dist,
+            values="Contagem",
+            names="Status",
+            title="Distribuição por Status do Cadastro",
+            color_discrete_sequence=colors,
+            hole=0.4
+        )
+        fig_status.update_layout(
+            template="plotly_white",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#1a1a1a", size=14, family="Inter"),
+            title_font=dict(size=18, color="#0077B6", family="Inter"),
+            margin=dict(t=60, b=40, l=40, r=40),
+            height=500
+        )
+        fig_status.update_traces(
+            textposition='inside',
+            textinfo='percent+label',
+            textfont_size=12
+        )
+        st.plotly_chart(fig_status, use_container_width=True, key="status_chart")
+
+with col_mapa:
+    if not df_selection.empty and "LATITUDE" in df_selection.columns and "LONGITUDE" in df_selection.columns:
+        # Filtrar dados com coordenadas válidas
+        df_map = df_selection[
+            (df_selection['LATITUDE'].notna()) & 
+            (df_selection['LONGITUDE'].notna()) &
+            (df_selection['LATITUDE'] != 0) &
+            (df_selection['LONGITUDE'] != 0)
+        ].copy()
+        
+        if not df_map.empty:
+            # Mapear cores para o mapa
+            df_map['color'] = df_map['STATUS'].apply(lambda x: color_map.get(str(x).upper(), '#808080'))
+            
+            # Criar mapa com plotly
+            fig_map = px.scatter_mapbox(
+                df_map,
+                lat="LATITUDE",
+                lon="LONGITUDE",
+                color="STATUS",
+                color_discrete_map=color_map,
+                hover_name="BAIRRO",
+                hover_data={
+                    "MUNICIPIO": True,
+                    "STATUS": True,
+                    "LATITUDE": ":.6f",
+                    "LONGITUDE": ":.6f"
+                },
+                title="Mapa de Localização dos Clientes",
+                zoom=10,
+                height=500
+            )
+            
+            fig_map.update_layout(
+                mapbox_style="open-street-map",
+                template="plotly_white",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#1a1a1a", size=12, family="Inter"),
+                title_font=dict(size=18, color="#0077B6", family="Inter"),
+                margin=dict(t=60, b=40, l=40, r=40),
+                showlegend=True,
+                legend=dict(
+                    orientation="v",
+                    yanchor="top",
+                    y=0.99,
+                    xanchor="left",
+                    x=0.01,
+                    bgcolor="rgba(255,255,255,0.8)"
+                )
+            )
+            
+            st.plotly_chart(fig_map, use_container_width=True, key="map_chart")
+        else:
+            st.info("Não há dados com coordenadas válidas para exibir no mapa.")
 
 st.markdown("---")
 
