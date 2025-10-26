@@ -447,6 +447,52 @@ with col_kpi4:
 
 st.markdown("---")
 
+# --- Gráfico de STATUS ---
+if not df_selection.empty and "STATUS" in df_selection.columns:
+    st.markdown('<div class="section-title">📋 Distribuição por Status</div>', unsafe_allow_html=True)
+    
+    status_dist = df_selection["STATUS"].value_counts().reset_index()
+    status_dist.columns = ["Status", "Contagem"]
+    
+    # Definir cores específicas para cada status
+    color_map = {
+        'COLETAR': '#0077B6',  # Azul
+        'VALIDAR': '#FFD700',  # Amarelo
+        'REAMBULADO': '#28A745',  # Verde
+        'AGUARDANDO CADASTRO': '#FF8C00',  # Laranja
+        'EXCLUIR': '#000000',  # Preto
+        'CORRIGIR': '#DC3545'  # Vermelho
+    }
+    
+    # Criar lista de cores na ordem dos status
+    colors = [color_map.get(status.upper(), '#808080') for status in status_dist['Status']]
+    
+    fig_status = px.pie(
+        status_dist,
+        values="Contagem",
+        names="Status",
+        title="Distribuição por Status do Cadastro",
+        color_discrete_sequence=colors,
+        hole=0.4
+    )
+    fig_status.update_layout(
+        template="plotly_white",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#1a1a1a", size=14, family="Inter"),
+        title_font=dict(size=18, color="#0077B6", family="Inter"),
+        margin=dict(t=60, b=40, l=40, r=40),
+        height=500
+    )
+    fig_status.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        textfont_size=12
+    )
+    st.plotly_chart(fig_status, use_container_width=True, key="status_chart")
+
+st.markdown("---")
+
 # --- Análise Técnica Completa ---
 st.markdown('<div class="section-title">📊 Análise Técnica e Operacional</div>', unsafe_allow_html=True)
 
