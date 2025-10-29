@@ -1033,7 +1033,10 @@ if 'REAMBULADOR' in df_filtrado.columns and not df_filtrado.empty:
     
     if not ranking.empty:
         # Métricas principais
-        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        
+        # Calcular média de visitas
+        media_visitas = ranking['Número de Visitas'].mean()
         
         with col_m1:
             st.markdown(f"""
@@ -1054,6 +1057,15 @@ if 'REAMBULADOR' in df_filtrado.columns and not df_filtrado.empty:
             """, unsafe_allow_html=True)
         
         with col_m3:
+            st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-icon">📈</div>
+                    <div class="metric-label">Média de Visitas</div>
+                    <div class="metric-value">{media_visitas:.1f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+        with col_m4:
             st.markdown(f"""
                 <div class="metric-card">
                     <div class="metric-icon">🏆</div>
