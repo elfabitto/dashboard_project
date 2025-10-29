@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, date
 import logging
 import base64
 from pathlib import Path
@@ -636,26 +636,35 @@ with col_status:
         # Criar lista de cores na ordem dos status
         colors = [color_map.get(status.upper(), '#808080') for status in status_dist['Status']]
         
+        # Adicionar informação de valor absoluto ao texto
+        status_dist['Texto'] = status_dist.apply(
+            lambda x: f"{x['Status']}<br>{x['Contagem']:,} registros<br>{(x['Contagem']/status_dist['Contagem'].sum()*100):.1f}%", 
+            axis=1
+        )
+        
         fig_status = px.pie(
             status_dist,
             values="Contagem",
             names="Status",
             title="Distribuição por Status do Cadastro",
             color_discrete_sequence=colors,
-            hole=0.4
+            hole=0.4,
+            custom_data=['Texto']  # incluir texto customizado
         )
         fig_status.update_layout(
             template="plotly_white",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#1a1a1a", size=14, family="Inter"),
-            title_font=dict(size=18, color="#0077B6", family="Inter"),
+            font=dict(color="#1a1a1a", size=14, family="Poppins"),
+            title_font=dict(size=18, color="#2563eb", family="Poppins"),
             margin=dict(t=60, b=40, l=40, r=40),
             height=500
         )
         fig_status.update_traces(
             textposition='inside',
-            textinfo='percent+label',
+            texttemplate="%{value:,.0f}<br>(%{percent:.1%})",
+            textinfo='text',
+            hovertemplate="%{customdata[0]}<extra></extra>",
             textfont_size=12
         )
         st.plotly_chart(fig_status, use_container_width=True, key="status_chart")
@@ -674,21 +683,35 @@ with col1:
     if not df_selection.empty and "SITUACAO_LIGACAO" in df_selection.columns:
         ligacao_dist = df_selection["SITUACAO_LIGACAO"].value_counts().reset_index()
         ligacao_dist.columns = ["Status", "Contagem"]
+        # Adicionar informação de valor absoluto ao texto
+        ligacao_dist['Texto'] = ligacao_dist.apply(
+            lambda x: f"{x['Status']}<br>{x['Contagem']:,} registros<br>{(x['Contagem']/ligacao_dist['Contagem'].sum()*100):.1f}%", 
+            axis=1
+        )
+        
         fig_ligacao = px.pie(
             ligacao_dist,
             values="Contagem",
             names="Status",
             title="Status de Ligação",
-            color_discrete_sequence=["#0077B6", "#00B4D8", "#90E0EF", "#CAF0F8"],
-            hole=0.4
+            color_discrete_sequence=["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd"],
+            hole=0.4,
+            custom_data=['Texto']
         )
         fig_ligacao.update_layout(
             template="plotly_white",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#1a1a1a", size=12, family="Inter"),
-            title_font=dict(size=16, color="#0077B6", family="Inter"),
+            font=dict(color="#1a1a1a", size=12, family="Poppins"),
+            title_font=dict(size=16, color="#2563eb", family="Poppins"),
             margin=dict(t=50, b=20, l=20, r=20)
+        )
+        fig_ligacao.update_traces(
+            textposition='inside',
+            texttemplate="%{value:,.0f}<br>(%{percent:.1%})",
+            textinfo='text',
+            hovertemplate="%{customdata[0]}<extra></extra>",
+            textfont_size=12
         )
         st.plotly_chart(fig_ligacao, use_container_width=True, key="ligacao_chart")
 
@@ -696,21 +719,35 @@ with col2:
     if not df_selection.empty and "IRREGULARIDADE_IDENTIFICADA" in df_selection.columns:
         irregularidade_dist = df_selection["IRREGULARIDADE_IDENTIFICADA"].value_counts().reset_index()
         irregularidade_dist.columns = ["Irregularidade", "Contagem"]
+        # Adicionar informação de valor absoluto ao texto
+        irregularidade_dist['Texto'] = irregularidade_dist.apply(
+            lambda x: f"{x['Irregularidade']}<br>{x['Contagem']:,} registros<br>{(x['Contagem']/irregularidade_dist['Contagem'].sum()*100):.1f}%", 
+            axis=1
+        )
+        
         fig_irregularidade = px.pie(
             irregularidade_dist,
             values="Contagem",
             names="Irregularidade",
             title="Irregularidades Identificadas",
-            color_discrete_sequence=["#FF6B6B", "#4ECDC4", "#FFE66D"],
-            hole=0.4
+            color_discrete_sequence=["#dc2626", "#059669", "#fbbf24"],
+            hole=0.4,
+            custom_data=['Texto']
         )
         fig_irregularidade.update_layout(
             template="plotly_white",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#1a1a1a", size=12, family="Inter"),
-            title_font=dict(size=16, color="#0077B6", family="Inter"),
+            font=dict(color="#1a1a1a", size=12, family="Poppins"),
+            title_font=dict(size=16, color="#2563eb", family="Poppins"),
             margin=dict(t=50, b=20, l=20, r=20)
+        )
+        fig_irregularidade.update_traces(
+            textposition='inside',
+            texttemplate="%{value:,.0f}<br>(%{percent:.1%})",
+            textinfo='text',
+            hovertemplate="%{customdata[0]}<extra></extra>",
+            textfont_size=12
         )
         st.plotly_chart(fig_irregularidade, use_container_width=True, key="irregularidade_chart")
 
@@ -718,21 +755,35 @@ with col3:
     if not df_selection.empty and "TIPO_EDIFICACAO" in df_selection.columns:
         edificacao_dist = df_selection["TIPO_EDIFICACAO"].value_counts().reset_index()
         edificacao_dist.columns = ["Tipo", "Contagem"]
+        # Adicionar informação de valor absoluto ao texto
+        edificacao_dist['Texto'] = edificacao_dist.apply(
+            lambda x: f"{x['Tipo']}<br>{x['Contagem']:,} registros<br>{(x['Contagem']/edificacao_dist['Contagem'].sum()*100):.1f}%", 
+            axis=1
+        )
+        
         fig_edificacao = px.pie(
             edificacao_dist,
             values="Contagem",
             names="Tipo",
             title="Tipo de Edificação",
-            color_discrete_sequence=["#0077B6", "#00B4D8", "#90E0EF", "#CAF0F8", "#ADE8F4"],
-            hole=0.4
+            color_discrete_sequence=["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe"],
+            hole=0.4,
+            custom_data=['Texto']
         )
         fig_edificacao.update_layout(
             template="plotly_white",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#1a1a1a", size=12, family="Inter"),
-            title_font=dict(size=16, color="#0077B6", family="Inter"),
+            font=dict(color="#1a1a1a", size=12, family="Poppins"),
+            title_font=dict(size=16, color="#2563eb", family="Poppins"),
             margin=dict(t=50, b=20, l=20, r=20)
+        )
+        fig_edificacao.update_traces(
+            textposition='inside',
+            texttemplate="%{value:,.0f}<br>(%{percent:.1%})",
+            textinfo='text',
+            hovertemplate="%{customdata[0]}<extra></extra>",
+            textfont_size=12
         )
         st.plotly_chart(fig_edificacao, use_container_width=True, key="edificacao_chart")
 
@@ -890,7 +941,7 @@ col_filtro1, col_filtro2, col_filtro3 = st.columns([2, 2, 2])
 with col_filtro1:
     tipo_filtro = st.selectbox(
         "Tipo de Filtro",
-        ["Por Período", "Por Mês"],
+        ["Hoje", "Por Período", "Por Mês"],
         key="tipo_filtro_reambulador"
     )
 
@@ -898,8 +949,18 @@ with col_filtro1:
 if 'DATA_COLETA' in df_selection.columns:
     df_selection_copy = df_selection.copy()
     df_selection_copy['DATA_COLETA'] = pd.to_datetime(df_selection_copy['DATA_COLETA'], errors='coerce')
+    hoje = date.today()
+    hoje = pd.Timestamp.now().date()
     
-    if tipo_filtro == "Por Período":
+    if tipo_filtro == "Hoje":
+        # Filtrar para registros de hoje
+        df_filtrado = df_selection_copy[
+            df_selection_copy['DATA_COLETA'].dt.date == hoje
+        ]
+        with col_filtro2:
+            st.info(f"Mostrando dados de hoje ({hoje.strftime('%d/%m/%Y')})")
+            
+    elif tipo_filtro == "Por Período":
         with col_filtro2:
             # Obter datas mínima e máxima
             data_min = df_selection_copy['DATA_COLETA'].min()
