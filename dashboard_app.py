@@ -6,6 +6,10 @@ from datetime import datetime
 import logging
 import base64
 from pathlib import Path
+import tempfile
+import os
+import io
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -42,9 +46,88 @@ def get_logo_base64():
         logger.error(f"Erro ao carregar logo: {str(e)}")
     return None
 
-# Load the data from Excel
+def _save_uploaded_file(uploaded_file) -> str:
+    """Salva uploaded_file (Streamlit UploadedFile) em arquivo temporário e retorna o caminho."""
+    try:
+        suffix = Path(uploaded_file.name).suffix
+        tmp_dir = tempfile.gettempdir()
+        tmp_src = os.path.join(tmp_dir, f"uploaded_{int(time.time())}{suffix}")
+        with open(tmp_src, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        return tmp_src
+    except Exception as e:
+        logger.error(f"Erro ao salvar arquivo enviado: {e}")
+        raise
+
+
+# Processa o DataFrame carregado (conversões e otimizações)
+def process_loaded_df(df: pd.DataFrame) -> pd.DataFrame:
+    try:
+        # Processar colunas
+        for col, dtype in EXPECTED_COLUMNS.items():
+            if col in df.columns:
+                try:
+                    if dtype == 'string':
+                        df[col] = df[col].fillna('Não informado').astype('string')
+                    elif dtype == 'float64':
+                        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                except Exception as e:
+                    logger.error(f"Erro ao converter coluna {col}: {str(e)}")
+
+        # Criar coluna auxiliar para hidrômetro
+        if 'SITUACAO_HIDROMETRO' in df.columns:
+            df['POSSUI_HIDROMETRO'] = df['SITUACAO_HIDROMETRO'].apply(
+                lambda x: 'SIM' if pd.notna(x) and str(x).upper() in ['NORMAL', 'QUEBRADO', 'INSTALADO'] else 'NÃO'
+            )
+
+        # Garantir que colunas numéricas existam
+        if 'TOTAL_DE_MORADORES' not in df.columns:
+            df['TOTAL_DE_MORADORES'] = 0
+        if 'QUANTOS_LITROS_TOTAIS' not in df.columns:
+            df['QUANTOS_LITROS_TOTAIS'] = 0
+
+        # --- Otimizações de tipos para reduzir uso de memória e payload ---
+        try:
+            category_cols = [
+                'MUNICIPIO','BAIRRO','STATUS','SITUACAO_LIGACAO',
+                'TIPO_VISITA','PADRAO_DO_IMOVEL','IRREGULARIDADE_IDENTIFICADA','TIPO_EDIFICACAO'
+            ]
+            for col in category_cols:
+                if col in df.columns:
+                    df[col] = df[col].astype('category')
+
+            # downcast em colunas numéricas conhecidas
+            for col in ['TOTAL_DE_MORADORES','QUANTOS_LITROS_TOTAIS']:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype('float32')
+        except Exception as e:
+            logger.debug(f"Não foi possível otimizar tipos: {e}")
+            pass
+
+        return df
+    except Exception as e:
+        logger.error(f"Erro ao processar DataFrame: {e}")
+        return df
+
+
+# Load the data from a given path (cached by path)
 @st.cache_data
-def load_data():
+def load_data(path: str) -> pd.DataFrame:
+    try:
+        if path.lower().endswith('.parquet'):
+            df = pd.read_parquet(path)
+        elif path.lower().endswith('.csv'):
+            df = pd.read_csv(path)
+        else:
+            # assume excel
+            df = pd.read_excel(path, engine='openpyxl')
+
+        logger.info(f"Dados carregados de {path}: {len(df)} registros")
+        return process_loaded_df(df)
+    except Exception as e:
+        logger.error(f"Erro ao carregar dados de {path}: {e}")
+        st.error(f"Erro ao carregar dados: {e}")
+        return pd.DataFrame()
     try:
         # Carregar diretamente do Excel
         df = pd.read_excel(
@@ -76,6 +159,24 @@ def load_data():
             df['TOTAL_DE_MORADORES'] = 0
         if 'QUANTOS_LITROS_TOTAIS' not in df.columns:
             df['QUANTOS_LITROS_TOTAIS'] = 0
+        # --- Otimizações de tipos para reduzir uso de memória e payload ---
+        try:
+            category_cols = [
+                'MUNICIPIO','BAIRRO','STATUS','SITUACAO_LIGACAO',
+                'TIPO_VISITA','PADRAO_DO_IMOVEL','IRREGULARIDADE_IDENTIFICADA','TIPO_EDIFICACAO'
+            ]
+            for col in category_cols:
+                if col in df.columns:
+                    # converter para category reduz consideravelmente o tamanho em memória
+                    df[col] = df[col].astype('category')
+
+            # downcast em colunas numéricas conhecidas
+            for col in ['TOTAL_DE_MORADORES','QUANTOS_LITROS_TOTAIS']:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype('float32')
+        except Exception as e:
+            logger.debug(f"Não foi possível otimizar tipos: {e}")
+            pass
             
         return df
 
@@ -84,8 +185,73 @@ def load_data():
         st.error(f"Erro ao carregar dados: {str(e)}")
         return pd.DataFrame()
 
-df = load_data()
+# logo
 logo_base64 = get_logo_base64()
+
+# --- Input de arquivo pelo usuário (sidebar) ---
+st.sidebar.markdown("## 🔁 Input de Planilha")
+uploaded_file = st.sidebar.file_uploader("Faça upload da planilha (xlsx/csv)", type=['xlsx','xls','csv'])
+if uploaded_file is not None:
+    try:
+        tmp_src = _save_uploaded_file(uploaded_file)
+        convert_to_parquet = st.sidebar.checkbox("Converter para formato leve (parquet) temporário", value=True)
+        if convert_to_parquet:
+            parquet_path = f"{tmp_src}.parquet"
+            try:
+                # ler arquivo original e salvar como parquet
+                if tmp_src.lower().endswith(('.xls', '.xlsx')):
+                    df_tmp = pd.read_excel(tmp_src, engine='openpyxl')
+                else:
+                    df_tmp = pd.read_csv(tmp_src)
+                df_tmp.to_parquet(parquet_path, index=False)
+                st.sidebar.success("Arquivo convertido para parquet temporário e será usado no painel.")
+                st.session_state['uploaded_path'] = parquet_path
+            except Exception as e:
+                logger.error(f"Falha ao converter para parquet: {e}")
+                st.sidebar.warning("Não foi possível converter para parquet; o arquivo original será usado.")
+                st.session_state['uploaded_path'] = tmp_src
+        else:
+            st.session_state['uploaded_path'] = tmp_src
+    except Exception as e:
+        st.sidebar.error(f"Erro ao salvar o arquivo enviado: {e}")
+
+# Determinar caminho dos dados: se o usuário enviou, usar isso; senão usar arquivo local
+data_path = st.session_state.get('uploaded_path', None)
+if data_path:
+    df = load_data(data_path)
+else:
+    # Não carregar mais arquivo local por padrão. Inicializar DataFrame vazio
+    st.sidebar.info("Nenhum arquivo carregado. Faça upload da planilha na seção 'Input de Planilha' para visualizar dados.")
+    df = pd.DataFrame()
+
+
+def prepare_map_points(df_map, max_points=5000):
+    """Reduz o número de pontos para o mapa por amostragem ou agregação espacial.
+    Retorna (df_plot, info) onde info é uma string com mensagem quando ocorreu redução.
+    """
+    try:
+        n = len(df_map)
+        if n <= max_points:
+            return df_map.copy(), None
+
+        # Tentar agregar por grid (arredondando coordenadas) para reduzir pontos
+        df_tmp = df_map.copy()
+        df_tmp['lat_r'] = df_tmp['LATITUDE'].round(3)
+        df_tmp['lon_r'] = df_tmp['LONGITUDE'].round(3)
+        df_agg = df_tmp.groupby(['lat_r', 'lon_r', 'STATUS']).size().reset_index(name='count')
+        df_agg = df_agg.rename(columns={'lat_r': 'LATITUDE', 'lon_r': 'LONGITUDE'})
+
+        info = f"Dados do mapa reduzidos: {n} -> {len(df_agg)} pontos (agregação por grid)."
+        return df_agg, info
+    except Exception as e:
+        logger.debug(f"prepare_map_points falhou: {e}")
+        # fallback: amostragem simples
+        try:
+            df_samp = df_map.sample(n=min(len(df_map), max_points), random_state=42)
+            info = f"Dados do mapa amostrados para {len(df_samp)} pontos (fallback)."
+            return df_samp, info
+        except Exception:
+            return df_map.copy(), None
 
 # Configuração da página
 st.set_page_config(
@@ -448,9 +614,9 @@ with col_kpi4:
 st.markdown("---")
 
 # --- Gráfico de STATUS e Mapa ---
-st.markdown('<div class="section-title">📋 Distribuição por Status e Localização</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">📋 Distribuição por Status</div>', unsafe_allow_html=True)
 
-col_status, col_mapa = st.columns(2)
+col_status = st.container()
 
 with col_status:
     if not df_selection.empty and "STATUS" in df_selection.columns:
@@ -494,61 +660,7 @@ with col_status:
         )
         st.plotly_chart(fig_status, use_container_width=True, key="status_chart")
 
-with col_mapa:
-    if not df_selection.empty and "LATITUDE" in df_selection.columns and "LONGITUDE" in df_selection.columns:
-        # Filtrar dados com coordenadas válidas
-        df_map = df_selection[
-            (df_selection['LATITUDE'].notna()) & 
-            (df_selection['LONGITUDE'].notna()) &
-            (df_selection['LATITUDE'] != 0) &
-            (df_selection['LONGITUDE'] != 0)
-        ].copy()
-        
-        if not df_map.empty:
-            # Mapear cores para o mapa
-            df_map['color'] = df_map['STATUS'].apply(lambda x: color_map.get(str(x).upper(), '#808080'))
-            
-            # Criar mapa com plotly
-            fig_map = px.scatter_mapbox(
-                df_map,
-                lat="LATITUDE",
-                lon="LONGITUDE",
-                color="STATUS",
-                color_discrete_map=color_map,
-                hover_name="BAIRRO",
-                hover_data={
-                    "MUNICIPIO": True,
-                    "STATUS": True,
-                    "LATITUDE": ":.6f",
-                    "LONGITUDE": ":.6f"
-                },
-                title="Mapa de Localização dos Clientes",
-                zoom=10,
-                height=500
-            )
-            
-            fig_map.update_layout(
-                mapbox_style="open-street-map",
-                template="plotly_white",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#1a1a1a", size=12, family="Inter"),
-                title_font=dict(size=18, color="#0077B6", family="Inter"),
-                margin=dict(t=60, b=40, l=40, r=40),
-                showlegend=True,
-                legend=dict(
-                    orientation="v",
-                    yanchor="top",
-                    y=0.99,
-                    xanchor="left",
-                    x=0.01,
-                    bgcolor="rgba(255,255,255,0.8)"
-                )
-            )
-            
-            st.plotly_chart(fig_map, use_container_width=True, key="map_chart")
-        else:
-            st.info("Não há dados com coordenadas válidas para exibir no mapa.")
+# Mapa removido por opção do usuário (pode pesar muito).
 
 st.markdown("---")
 
@@ -935,13 +1047,22 @@ if 'REAMBULADOR' in df_filtrado.columns and not df_filtrado.empty:
             # Adicionar posição no ranking
             ranking_display = ranking.copy()
             ranking_display.insert(0, 'Posição', range(1, len(ranking_display) + 1))
-            
+            # Mostrar apenas top 100 na tabela para evitar envio massivo ao frontend
+            max_show = 100
             st.dataframe(
-                ranking_display,
+                ranking_display.head(max_show),
                 hide_index=True,
                 use_container_width=True,
-                height=max(400, len(ranking) * 35 + 38)
+                height=max(400, min(len(ranking), max_show) * 35 + 38)
             )
+
+            # Oferecer download do CSV completo
+            try:
+                csv_bytes = ranking.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Baixar CSV (completo)", csv_bytes, file_name='ranking_reambulador.csv', mime='text/csv')
+            except Exception:
+                # se algo falhar, apenas permitir copiar por clipboard
+                st.markdown("Não foi possível gerar o arquivo para download.")
     else:
         st.warning("Não há dados de reambuladores para o período selecionado")
 else:
