@@ -1,0 +1,7 @@
+#ambiente virtual
+.\venv\Scripts\Activate.ps1
+
+#rodar streamlit
+streamlit run dashboard_app.py
+
+

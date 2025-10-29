@@ -89,7 +89,7 @@ logo_base64 = get_logo_base64()
 
 # Configuração da página
 st.set_page_config(
-    page_title="Dashboard Águas do Pará",
+    page_title="Painel Diário Águas do Pará",
     page_icon="💧",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -850,6 +850,10 @@ if 'REAMBULADOR' in df_filtrado.columns and not df_filtrado.empty:
     # Contar quantas vezes cada reambulador aparece (número de visitas)
     ranking = df_filtrado['REAMBULADOR'].value_counts().reset_index()
     ranking.columns = ['Reambulador', 'Número de Visitas']
+    
+    # Converter para string e remover valores nulos ou vazios
+    ranking['Reambulador'] = ranking['Reambulador'].astype(str)
+    ranking = ranking[ranking['Reambulador'].notna() & (ranking['Reambulador'] != '') & (ranking['Reambulador'] != 'nan')]
     
     # Remover valores nulos ou vazios
     ranking = ranking[ranking['Reambulador'].notna() & (ranking['Reambulador'] != '')]
