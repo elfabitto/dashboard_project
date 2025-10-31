@@ -194,24 +194,8 @@ uploaded_file = st.sidebar.file_uploader("Faça upload da planilha (xlsx/csv)", 
 if uploaded_file is not None:
     try:
         tmp_src = _save_uploaded_file(uploaded_file)
-        convert_to_parquet = st.sidebar.checkbox("Converter para formato leve (parquet) temporário", value=True)
-        if convert_to_parquet:
-            parquet_path = f"{tmp_src}.parquet"
-            try:
-                # ler arquivo original e salvar como parquet
-                if tmp_src.lower().endswith(('.xls', '.xlsx')):
-                    df_tmp = pd.read_excel(tmp_src, engine='openpyxl')
-                else:
-                    df_tmp = pd.read_csv(tmp_src)
-                df_tmp.to_parquet(parquet_path, index=False)
-                st.sidebar.success("Arquivo convertido para parquet temporário e será usado no painel.")
-                st.session_state['uploaded_path'] = parquet_path
-            except Exception as e:
-                logger.error(f"Falha ao converter para parquet: {e}")
-                st.sidebar.warning("Não foi possível converter para parquet; o arquivo original será usado.")
-                st.session_state['uploaded_path'] = tmp_src
-        else:
-            st.session_state['uploaded_path'] = tmp_src
+        st.session_state['uploaded_path'] = tmp_src
+        st.sidebar.success("Arquivo carregado com sucesso!")
     except Exception as e:
         st.sidebar.error(f"Erro ao salvar o arquivo enviado: {e}")
 
@@ -255,13 +239,13 @@ def prepare_map_points(df_map, max_points=5000):
 
 # Configuração da página
 st.set_page_config(
-    page_title="Painel Diário Águas do Pará",
+    page_title="Painel Diário de Cadastros",
     page_icon="💧",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# CSS moderno e clean
+# CSS moderno e clean - Tema Claro
 st.markdown("""
     <style>
     /* Importar fonte moderna */
@@ -272,25 +256,26 @@ st.markdown("""
     }
     
     :root {
-        --primary-color: #0077B6;
-        --secondary-color: #00B4D8;
-        --accent-color: #90E0EF;
-        --background: #F8FAFB;
+        --primary-color: #1976D2;
+        --secondary-color: #FF9800;
+        --accent-color: #66BB6A;
+        --background: #F5F7FA;
         --surface: #FFFFFF;
+        --surface-light: #F8F9FA;
         --text: #1a1a1a;
         --text-light: #64748b;
-        --border: #e2e8f0;
-        --shadow: rgba(0, 119, 182, 0.08);
+        --border: #E2E8F0;
+        --shadow: rgba(0, 0, 0, 0.08);
     }
     
     /* Background principal */
     [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg, #F8FAFB 0%, #EBF8FF 100%);
+        background: linear-gradient(135deg, #F5F7FA 0%, #E8EEF5 100%);
     }
     
     /* Sidebar moderna */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFB 100%);
+        background: linear-gradient(180deg, #FFFFFF 0%, #F8F9FA 100%);
         border-right: 1px solid var(--border);
         box-shadow: 2px 0 12px var(--shadow);
     }
@@ -302,9 +287,19 @@ st.markdown("""
         margin-bottom: 1.5rem;
     }
     
+    /* Estilizar labels e textos da sidebar */
+    [data-testid="stSidebar"] label {
+        color: var(--text) !important;
+        font-weight: 500;
+    }
+    
+    [data-testid="stSidebar"] .stMarkdown {
+        color: var(--text-light);
+    }
+    
     /* Header com logo */
     .dashboard-header {
-        background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%);
+        background: linear-gradient(135deg, #FFFFFF 0%, #F0F4F8 100%);
         border-radius: 16px;
         padding: 2rem;
         margin-bottom: 2rem;
@@ -346,7 +341,7 @@ st.markdown("""
     
     /* Cards de métricas modernos */
     .metric-card {
-        background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%);
+        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFB 100%);
         border-radius: 16px;
         padding: 1.5rem;
         border: 1px solid var(--border);
@@ -357,7 +352,8 @@ st.markdown("""
     
     .metric-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 8px 24px rgba(0, 119, 182, 0.15);
+        box-shadow: 0 8px 24px rgba(25, 118, 210, 0.15);
+        border-color: var(--primary-color);
     }
     
     .metric-icon {
@@ -370,6 +366,7 @@ st.markdown("""
         justify-content: center;
         font-size: 24px;
         margin-bottom: 1rem;
+        box-shadow: 0 4px 12px rgba(79, 195, 247, 0.3);
     }
     
     .metric-label {
@@ -382,7 +379,7 @@ st.markdown("""
     }
     
     .metric-value {
-        color: var(--primary-color);
+        color: var(--text);
         font-size: 2rem;
         font-weight: 700;
         line-height: 1;
@@ -395,7 +392,7 @@ st.markdown("""
         font-weight: 600;
         margin: 2rem 0 1rem 0;
         padding-bottom: 0.5rem;
-        border-bottom: 2px solid var(--accent-color);
+        border-bottom: 2px solid var(--primary-color);
     }
     
     /* Gráficos */
@@ -431,7 +428,8 @@ st.markdown("""
     }
     
     [data-testid="stTabs"] [role="tab"]:hover {
-        background: var(--background);
+        background: var(--surface-light);
+        color: var(--text);
     }
     
     [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
@@ -449,7 +447,7 @@ st.markdown("""
     
     /* Footer */
     .footer-stats {
-        background: white;
+        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFB 100%);
         border-radius: 12px;
         padding: 1.5rem;
         margin-top: 2rem;
@@ -514,7 +512,7 @@ if logo_base64:
                 <img src="data:image/png;base64,{logo_base64}" alt="Logo Águas do Pará">
             </div>
             <div class="header-content">
-                <h1 class="header-title">Dashboard de Cadastro de Clientes</h1>
+                <h1 class="header-title">Painel Diário de Cadastros</h1>
                 <p class="header-subtitle">Análise completa dos dados de abastecimento de água municipal</p>
             </div>
         </div>
@@ -523,7 +521,7 @@ else:
     st.markdown("""
         <div class="dashboard-header">
             <div class="header-content">
-                <h1 class="header-title">💧 Dashboard de Cadastro de Clientes</h1>
+                <h1 class="header-title">💧 Painel Diário de Cadastros</h1>
                 <p class="header-subtitle">Análise completa dos dados de abastecimento de água municipal</p>
             </div>
         </div>
@@ -570,11 +568,12 @@ col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
 
 with col_kpi1:
     total_clientes = len(df_selection)
+    total_clientes_fmt = f"{total_clientes:,.0f}".replace(',', '.')
     st.markdown(f"""
         <div class="metric-card">
             <div class="metric-icon">👥</div>
             <div class="metric-label">Total de Clientes</div>
-            <div class="metric-value">{total_clientes:,}</div>
+            <div class="metric-value">{total_clientes_fmt}</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -592,22 +591,33 @@ with col_kpi2:
     """, unsafe_allow_html=True)
 
 with col_kpi3:
-    media_moradores = df_selection['TOTAL_DE_MORADORES'].mean() if 'TOTAL_DE_MORADORES' in df_selection.columns else 0
+    # Calcular média apenas de imóveis com 1 ou mais moradores
+    if 'TOTAL_DE_MORADORES' in df_selection.columns:
+        df_com_moradores = df_selection[df_selection['TOTAL_DE_MORADORES'] >= 1]
+        media_moradores = df_com_moradores['TOTAL_DE_MORADORES'].mean() if len(df_com_moradores) > 0 else 0
+    else:
+        media_moradores = 0
+    media_moradores_fmt = f"{media_moradores:.1f}".replace('.', ',')
     st.markdown(f"""
         <div class="metric-card">
             <div class="metric-icon">🏠</div>
             <div class="metric-label">Média de Moradores</div>
-            <div class="metric-value">{media_moradores:.1f}</div>
+            <div class="metric-value">{media_moradores_fmt}</div>
         </div>
     """, unsafe_allow_html=True)
 
 with col_kpi4:
-    ligacao_clandestina = len(df_selection[df_selection['IRREGULARIDADE_IDENTIFICADA'].str.contains('CLANDESTINA', case=False, na=False)]) if 'IRREGULARIDADE_IDENTIFICADA' in df_selection.columns else 0
+    # Contar matrículas duplicadas
+    if 'MATRICULA' in df_selection.columns:
+        matriculas_duplicadas = df_selection['MATRICULA'].duplicated().sum()
+    else:
+        matriculas_duplicadas = 0
+    matriculas_duplicadas_fmt = f"{matriculas_duplicadas:,.0f}".replace(',', '.')
     st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-icon">⚠️</div>
-            <div class="metric-label">Ligações Clandestinas</div>
-            <div class="metric-value">{ligacao_clandestina:,}</div>
+            <div class="metric-icon">🚨</div>
+            <div class="metric-label">Matrículas Duplicadas</div>
+            <div class="metric-value">{matriculas_duplicadas_fmt}</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -623,14 +633,14 @@ with col_status:
         status_dist = df_selection["STATUS"].value_counts().reset_index()
         status_dist.columns = ["Status", "Contagem"]
         
-        # Definir cores específicas para cada status
+        # Definir cores vibrantes específicas para cada status
         color_map = {
-            'COLETAR': '#0077B6',  # Azul
-            'VALIDAR': '#FFD700',  # Amarelo
-            'REAMBULADO': '#28A745',  # Verde
-            'AGUARDANDO CADASTRO': '#FF8C00',  # Laranja
-            'EXCLUIR': '#000000',  # Preto
-            'CORRIGIR': '#DC3545'  # Vermelho
+            'COLETAR': '#4FC3F7',  # Azul vibrante
+            'VALIDAR': '#FFB74D',  # Laranja vibrante
+            'REAMBULADO': '#66BB6A',  # Verde vibrante
+            'AGUARDANDO CADASTRO': '#FF9800',  # Laranja escuro
+            'EXCLUIR': '#78909C',  # Cinza azulado
+            'CORRIGIR': '#EF5350'  # Vermelho vibrante
         }
         
         # Criar lista de cores na ordem dos status
@@ -653,12 +663,17 @@ with col_status:
         )
         fig_status.update_layout(
             template="plotly_white",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#1a1a1a", size=14, family="Poppins"),
-            title_font=dict(size=18, color="#2563eb", family="Poppins"),
+            paper_bgcolor="rgba(255, 255, 255, 0.95)",
+            plot_bgcolor="rgba(255, 255, 255, 0.95)",
+            font=dict(color="#1a1a1a", size=14, family="Inter"),
+            title_font=dict(size=18, color="#1976D2", family="Inter"),
             margin=dict(t=60, b=40, l=40, r=40),
-            height=500
+            height=500,
+            showlegend=True,
+            legend=dict(
+                font=dict(color="#64748b"),
+                bgcolor="rgba(255, 255, 255, 0.8)"
+            )
         )
         fig_status.update_traces(
             textposition='inside',
@@ -677,7 +692,7 @@ st.markdown("---")
 st.markdown('<div class="section-title">📊 Análise Técnica e Operacional</div>', unsafe_allow_html=True)
 
 # Row 1 - Gráficos de Pizza
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     if not df_selection.empty and "SITUACAO_LIGACAO" in df_selection.columns:
@@ -694,17 +709,19 @@ with col1:
             values="Contagem",
             names="Status",
             title="Status de Ligação",
-            color_discrete_sequence=["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd"],
+            color_discrete_sequence=["#4FC3F7", "#FF9800", "#66BB6A", "#FFB74D", "#AB47BC", "#EF5350"],
             hole=0.4,
             custom_data=['Texto']
         )
         fig_ligacao.update_layout(
             template="plotly_white",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#1a1a1a", size=12, family="Poppins"),
-            title_font=dict(size=16, color="#2563eb", family="Poppins"),
-            margin=dict(t=50, b=20, l=20, r=20)
+            paper_bgcolor="rgba(255, 255, 255, 0.95)",
+            plot_bgcolor="rgba(255, 255, 255, 0.95)",
+            font=dict(color="#1a1a1a", size=12, family="Inter"),
+            title_font=dict(size=16, color="#1976D2", family="Inter"),
+            margin=dict(t=50, b=20, l=20, r=20),
+            showlegend=True,
+            legend=dict(font=dict(color="#64748b"))
         )
         fig_ligacao.update_traces(
             textposition='inside',
@@ -730,17 +747,19 @@ with col2:
             values="Contagem",
             names="Irregularidade",
             title="Irregularidades Identificadas",
-            color_discrete_sequence=["#dc2626", "#059669", "#fbbf24"],
+            color_discrete_sequence=["#EF5350", "#66BB6A", "#FFB74D", "#4FC3F7", "#AB47BC"],
             hole=0.4,
             custom_data=['Texto']
         )
         fig_irregularidade.update_layout(
             template="plotly_white",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#1a1a1a", size=12, family="Poppins"),
-            title_font=dict(size=16, color="#2563eb", family="Poppins"),
-            margin=dict(t=50, b=20, l=20, r=20)
+            paper_bgcolor="rgba(255, 255, 255, 0.95)",
+            plot_bgcolor="rgba(255, 255, 255, 0.95)",
+            font=dict(color="#1a1a1a", size=12, family="Inter"),
+            title_font=dict(size=16, color="#1976D2", family="Inter"),
+            margin=dict(t=50, b=20, l=20, r=20),
+            showlegend=True,
+            legend=dict(font=dict(color="#64748b"))
         )
         fig_irregularidade.update_traces(
             textposition='inside',
@@ -766,17 +785,19 @@ with col3:
             values="Contagem",
             names="Tipo",
             title="Tipo de Edificação",
-            color_discrete_sequence=["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe"],
+            color_discrete_sequence=["#4FC3F7", "#FFB74D", "#66BB6A", "#FF9800", "#AB47BC", "#EF5350"],
             hole=0.4,
             custom_data=['Texto']
         )
         fig_edificacao.update_layout(
             template="plotly_white",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#1a1a1a", size=12, family="Poppins"),
-            title_font=dict(size=16, color="#2563eb", family="Poppins"),
-            margin=dict(t=50, b=20, l=20, r=20)
+            paper_bgcolor="rgba(255, 255, 255, 0.95)",
+            plot_bgcolor="rgba(255, 255, 255, 0.95)",
+            font=dict(color="#1a1a1a", size=12, family="Inter"),
+            title_font=dict(size=16, color="#1976D2", family="Inter"),
+            margin=dict(t=50, b=20, l=20, r=20),
+            showlegend=True,
+            legend=dict(font=dict(color="#64748b"))
         )
         fig_edificacao.update_traces(
             textposition='inside',
@@ -787,34 +808,94 @@ with col3:
         )
         st.plotly_chart(fig_edificacao, use_container_width=True, key="edificacao_chart")
 
+with col4:
+    if not df_selection.empty and "PADRAO_EDIFICACAO" in df_selection.columns:
+        padrao_edif_dist = df_selection["PADRAO_EDIFICACAO"].value_counts().reset_index()
+        padrao_edif_dist.columns = ["Padrão", "Contagem"]
+        # Adicionar informação de valor absoluto ao texto
+        padrao_edif_dist['Texto'] = padrao_edif_dist.apply(
+            lambda x: f"{x['Padrão']}<br>{x['Contagem']:,.0f}".replace(',', '.') + f" registros<br>{(x['Contagem']/padrao_edif_dist['Contagem'].sum()*100):.1f}%".replace('.', ','), 
+            axis=1
+        )
+        
+        fig_padrao_edif = px.pie(
+            padrao_edif_dist,
+            values="Contagem",
+            names="Padrão",
+            title="Padrão de Edificação",
+            color_discrete_sequence=["#9C27B0", "#E91E63", "#FF5722", "#FFC107", "#4CAF50", "#2196F3"],
+            hole=0.4,
+            custom_data=['Texto']
+        )
+        fig_padrao_edif.update_layout(
+            template="plotly_white",
+            paper_bgcolor="rgba(255, 255, 255, 0.95)",
+            plot_bgcolor="rgba(255, 255, 255, 0.95)",
+            font=dict(color="#1a1a1a", size=12, family="Inter"),
+            title_font=dict(size=16, color="#1976D2", family="Inter"),
+            margin=dict(t=50, b=20, l=20, r=20),
+            showlegend=True,
+            legend=dict(font=dict(color="#64748b"))
+        )
+        fig_padrao_edif.update_traces(
+            textposition='inside',
+            texttemplate="%{value:,.0f}<br>(%{percent:.1%})",
+            textinfo='text',
+            hovertemplate="%{customdata[0]}<extra></extra>",
+            textfont_size=12
+        )
+        st.plotly_chart(fig_padrao_edif, use_container_width=True, key="padrao_edif_chart")
+
 st.markdown("---")
 
 # Row 2 - Gráficos de Barras
 col4, col5 = st.columns(2)
 
 with col4:
-    if not df_selection.empty and "LOGRADOURO" in df_selection.columns:
-        logradouro_dist = df_selection["LOGRADOURO"].value_counts().head(15).reset_index()
-        logradouro_dist.columns = ["Rua", "Quantidade"]
-        fig_logradouro = px.bar(
-            logradouro_dist,
-            x="Quantidade",
-            y="Rua",
-            orientation="h",
-            title="Top 15 Ruas com Mais Clientes",
-            color="Quantidade",
-            color_continuous_scale=["#90E0EF", "#00B4D8", "#0077B6"]
+    # Gráfico de Economias (RES, COM, PUB, IND)
+    economias_cols = ['ECONOMIAS_RES', 'ECONOMIAS_COM', 'ECONOMIAS_PUB', 'ECONOMIAS_IND']
+    economias_data = []
+    
+    for col in economias_cols:
+        if col in df_selection.columns:
+            total = df_selection[col].sum()
+            tipo = col.replace('ECONOMIAS_', '')
+            economias_data.append({'Tipo': tipo, 'Total': total})
+    
+    if economias_data:
+        df_economias = pd.DataFrame(economias_data)
+        
+        fig_economias = px.bar(
+            df_economias,
+            x="Tipo",
+            y="Total",
+            title="Economias por Tipo",
+            color="Tipo",
+            color_discrete_map={
+                'RES': '#4FC3F7',
+                'COM': '#FF9800',
+                'PUB': '#66BB6A',
+                'IND': '#AB47BC'
+            }
         )
-        fig_logradouro.update_layout(
+        fig_economias.update_layout(
             template="plotly_white",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(255, 255, 255, 0.95)",
+            plot_bgcolor="rgba(255, 255, 255, 0.95)",
             font=dict(color="#1a1a1a", size=12, family="Inter"),
-            title_font=dict(size=16, color="#0077B6", family="Inter"),
-            yaxis={"categoryorder": "total ascending"},
-            margin=dict(t=50, b=40, l=20, r=20)
+            title_font=dict(size=16, color="#1976D2", family="Inter"),
+            xaxis_title="Tipo de Economia",
+            yaxis_title="Total",
+            showlegend=False,
+            xaxis=dict(gridcolor="#E2E8F0"),
+            yaxis=dict(gridcolor="#E2E8F0"),
+            margin=dict(t=50, b=40, l=40, r=20)
         )
-        st.plotly_chart(fig_logradouro, use_container_width=True, key="logradouro_chart")
+        fig_economias.update_traces(
+            text=df_economias['Total'].apply(lambda x: f"{x:,.0f}".replace(',', '.')),
+            textposition='outside'
+        )
+        st.plotly_chart(fig_economias, use_container_width=True, key="economias_chart")
 
 with col5:
     if not df_selection.empty and "QUADRA" in df_selection.columns:
@@ -827,18 +908,19 @@ with col5:
             x="Quadra",
             y="Quantidade",
             title="Quantitativo de Clientes por Quadra",
-            color_discrete_sequence=["#0077B6"]
+            color_discrete_sequence=["#FF9800"]
         )
         fig_quadra.update_layout(
             template="plotly_white",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(255, 255, 255, 0.95)",
+            plot_bgcolor="rgba(255, 255, 255, 0.95)",
             font=dict(color="#1a1a1a", size=12, family="Inter"),
-            title_font=dict(size=16, color="#0077B6", family="Inter"),
+            title_font=dict(size=16, color="#1976D2", family="Inter"),
             xaxis_title="Quadra",
             yaxis_title="Quantidade",
             showlegend=False,
-            xaxis=dict(type="category"),
+            xaxis=dict(type="category", gridcolor="#E2E8F0"),
+            yaxis=dict(gridcolor="#E2E8F0"),
             margin=dict(t=50, b=40, l=40, r=20)
         )
         st.plotly_chart(fig_quadra, use_container_width=True, key="quadra_chart")
@@ -859,26 +941,28 @@ with col6:
                 x=visita_dist["Quantidade"],
                 orientation="h",
                 marker=dict(
-                    color="#0077B6",
-                    line=dict(color="#00B4D8", width=2)
+                    color="#66BB6A",
+                    line=dict(color="#4FC3F7", width=2)
                 ),
                 text=visita_dist["Quantidade"],
                 textposition="outside",
+                textfont=dict(color="#FFFFFF"),
                 hovertemplate="<b>%{y}</b><br>Quantidade: %{x}<extra></extra>"
             )
         ])
         fig_visita.update_layout(
             template="plotly_white",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(255, 255, 255, 0.95)",
+            plot_bgcolor="rgba(255, 255, 255, 0.95)",
             font=dict(color="#1a1a1a", size=12, family="Inter"),
             title="Distribuição por Tipo de Visita",
-            title_font=dict(size=16, color="#0077B6", family="Inter"),
+            title_font=dict(size=16, color="#1976D2", family="Inter"),
             xaxis_title="Quantidade",
             yaxis_title="Tipo",
             height=400,
             showlegend=False,
-            yaxis={"categoryorder": "total ascending"},
+            yaxis={"categoryorder": "total ascending", "gridcolor": "#E2E8F0"},
+            xaxis=dict(gridcolor="#E2E8F0"),
             margin=dict(t=50, b=40, l=20, r=40)
         )
         st.plotly_chart(fig_visita, use_container_width=True, key="visita_chart")
@@ -893,42 +977,22 @@ with col7:
             x="Padrão",
             y="Quantidade",
             title="Distribuição por Padrão do Imóvel",
-            color_discrete_sequence=["#00B4D8"]
+            color_discrete_sequence=["#FFB74D"]
         )
         fig_padrao.update_layout(
             template="plotly_white",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(255, 255, 255, 0.95)",
+            plot_bgcolor="rgba(255, 255, 255, 0.95)",
             font=dict(color="#1a1a1a", size=12, family="Inter"),
-            title_font=dict(size=16, color="#0077B6", family="Inter"),
+            title_font=dict(size=16, color="#1976D2", family="Inter"),
             xaxis_title="Padrão",
             yaxis_title="Quantidade",
             showlegend=False,
+            xaxis=dict(gridcolor="#E2E8F0"),
+            yaxis=dict(gridcolor="#E2E8F0"),
             margin=dict(t=50, b=40, l=40, r=20)
         )
         st.plotly_chart(fig_padrao, use_container_width=True, key="padrao_chart")
-
-st.markdown("---")
-
-# Estatísticas de Moradores
-if not df_selection.empty and "TOTAL_DE_MORADORES" in df_selection.columns:
-    st.markdown('<div class="section-title">👨‍👩‍👧‍👦 Análise de Moradores</div>', unsafe_allow_html=True)
-    
-    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-    
-    moradores_stats = df_selection["TOTAL_DE_MORADORES"].describe()
-    
-    with col_m1:
-        st.metric("Mínimo", f"{moradores_stats['min']:.0f}")
-    
-    with col_m2:
-        st.metric("Média", f"{moradores_stats['mean']:.1f}")
-    
-    with col_m3:
-        st.metric("Mediana", f"{moradores_stats['50%']:.1f}")
-    
-    with col_m4:
-        st.metric("Máximo", f"{moradores_stats['max']:.0f}")
 
 st.markdown("---")
 
@@ -1088,8 +1152,8 @@ if 'REAMBULADOR' in df_filtrado.columns and not df_filtrado.empty:
                     orientation='h',
                     marker=dict(
                         color=ranking['Número de Visitas'],
-                        colorscale='Blues',
-                        line=dict(color='#0077B6', width=1)
+                        colorscale=[[0, '#E6F7FF'], [0.5, '#A8DADC'], [1, '#7BC8D4']],
+                        line=dict(color='#A8DADC', width=1)
                     ),
                     text=ranking['Número de Visitas'],
                     textposition='outside',
@@ -1099,16 +1163,17 @@ if 'REAMBULADOR' in df_filtrado.columns and not df_filtrado.empty:
             
             fig_ranking.update_layout(
                 template="plotly_white",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(255, 255, 255, 0.95)",
+                plot_bgcolor="rgba(255, 255, 255, 0.95)",
                 font=dict(color="#1a1a1a", size=12, family="Inter"),
                 title="Ranking de Reambuladores por Número de Visitas",
-                title_font=dict(size=18, color="#0077B6", family="Inter"),
+                title_font=dict(size=18, color="#1976D2", family="Inter"),
                 xaxis_title="Número de Visitas",
                 yaxis_title="Reambulador",
                 height=max(400, len(ranking) * 25),
                 showlegend=False,
-                yaxis={"categoryorder": "total ascending"},
+                yaxis={"categoryorder": "total ascending", "gridcolor": "#E2E8F0"},
+                xaxis=dict(gridcolor="#E2E8F0"),
                 margin=dict(t=60, b=40, l=200, r=40)
             )
             
@@ -1142,19 +1207,12 @@ else:
     st.warning("Coluna REAMBULADOR não encontrada nos dados ou não há dados disponíveis")
 
 # Footer com estatísticas
+total_registros_fmt = f"{len(df_selection):,.0f}".replace(',', '.')
 st.markdown(f"""
     <div class="footer-stats">
         <div class="footer-stat">
             <div class="footer-stat-label">Total de Registros</div>
-            <div class="footer-stat-value">{len(df_selection):,}</div>
-        </div>
-        <div class="footer-stat">
-            <div class="footer-stat-label">Municípios</div>
-            <div class="footer-stat-value">{df_selection['MUNICIPIO'].nunique()}</div>
-        </div>
-        <div class="footer-stat">
-            <div class="footer-stat-label">Bairros Analisados</div>
-            <div class="footer-stat-value">{df_selection['BAIRRO'].nunique()}</div>
+            <div class="footer-stat-value">{total_registros_fmt}</div>
         </div>
         <div class="footer-stat">
             <div class="footer-stat-label">Última Atualização</div>
