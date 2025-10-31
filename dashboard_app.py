@@ -209,8 +209,11 @@ uploaded_file = st.sidebar.file_uploader(
 
 if uploaded_file is not None:
     try:
-        tmp_src = _save_uploaded_file(uploaded_file)
-        st.session_state['uploaded_path'] = tmp_src
+        # Mostrar loading enquanto processa
+        with st.spinner(''):
+            tmp_src = _save_uploaded_file(uploaded_file)
+            st.session_state['uploaded_path'] = tmp_src
+            st.session_state['file_uploaded'] = True
         st.sidebar.success("✓ Carregado", icon="✅")
     except Exception as e:
         st.sidebar.error(f"Erro: {e}")
@@ -218,7 +221,13 @@ if uploaded_file is not None:
 # Determinar caminho dos dados
 data_path = st.session_state.get('uploaded_path', None)
 if data_path:
-    df = load_data(data_path)
+    # Mostrar loading apenas na primeira vez que carrega
+    if st.session_state.get('file_uploaded', False):
+        with st.spinner('Processando dados...'):
+            df = load_data(data_path)
+        st.session_state['file_uploaded'] = False
+    else:
+        df = load_data(data_path)
 else:
     st.sidebar.info("💡 Faça upload da planilha", icon="ℹ️")
     df = pd.DataFrame()
