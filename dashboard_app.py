@@ -833,9 +833,24 @@ with col_kpi3:
     """, unsafe_allow_html=True)
 
 with col_kpi4:
-    # Contar matrículas duplicadas
+    # Contar matrículas duplicadas (excluindo valores 0)
     if 'MATRICULA' in df_selection.columns:
-        matriculas_duplicadas = df_selection['MATRICULA'].duplicated().sum()
+        # Filtrar matrículas diferentes de zero
+        df_matriculas_validas = df_selection[df_selection['MATRICULA'] != 0].copy()
+        
+        # Contar todas as ocorrências de cada matrícula
+        contagem_matriculas = df_matriculas_validas['MATRICULA'].value_counts()
+        
+        # Selecionar apenas as matrículas que aparecem mais de uma vez
+        matriculas_duplicadas = contagem_matriculas[contagem_matriculas > 1].sum() - len(contagem_matriculas[contagem_matriculas > 1])
+        
+        # Debug info
+        st.sidebar.markdown("### Informações de Validação")
+        with st.sidebar.expander("Detalhes de Matrículas Duplicadas"):
+            st.write("Matrículas que aparecem mais de uma vez:")
+            duplicatas = contagem_matriculas[contagem_matriculas > 1].to_dict()
+            for mat, count in duplicatas.items():
+                st.write(f"Matrícula {mat}: {count} ocorrências")
     else:
         matriculas_duplicadas = 0
     matriculas_duplicadas_fmt = f"{matriculas_duplicadas:,.0f}".replace(',', '.')
