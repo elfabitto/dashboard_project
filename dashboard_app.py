@@ -189,24 +189,41 @@ def load_data(path: str) -> pd.DataFrame:
 logo_base64 = get_logo_base64()
 
 # --- Input de arquivo pelo usuário (sidebar) ---
-st.sidebar.markdown("## 🔁 Input de Planilha")
-uploaded_file = st.sidebar.file_uploader("Faça upload da planilha (xlsx/csv)", type=['xlsx','xls','csv'])
+st.sidebar.markdown("""
+    <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); 
+                padding: 0.8rem; 
+                border-radius: 8px; 
+                margin-bottom: 1rem;
+                border: 1px solid #90CAF9;">
+        <p style="font-size: 0.9rem; font-weight: 600; color: #1976D2; margin: 0 0 0.5rem 0;">
+            📁 Upload de Dados
+        </p>
+    </div>
+""", unsafe_allow_html=True)
+
+uploaded_file = st.sidebar.file_uploader(
+    "Arquivo",
+    type=['xlsx','xls','csv'],
+    label_visibility="collapsed"
+)
+
 if uploaded_file is not None:
     try:
         tmp_src = _save_uploaded_file(uploaded_file)
         st.session_state['uploaded_path'] = tmp_src
-        st.sidebar.success("Arquivo carregado com sucesso!")
+        st.sidebar.success("✓ Carregado", icon="✅")
     except Exception as e:
-        st.sidebar.error(f"Erro ao salvar o arquivo enviado: {e}")
+        st.sidebar.error(f"Erro: {e}")
 
-# Determinar caminho dos dados: se o usuário enviou, usar isso; senão usar arquivo local
+# Determinar caminho dos dados
 data_path = st.session_state.get('uploaded_path', None)
 if data_path:
     df = load_data(data_path)
 else:
-    # Não carregar mais arquivo local por padrão. Inicializar DataFrame vazio
-    st.sidebar.info("Nenhum arquivo carregado. Faça upload da planilha na seção 'Input de Planilha' para visualizar dados.")
+    st.sidebar.info("💡 Faça upload da planilha", icon="ℹ️")
     df = pd.DataFrame()
+
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
 
 def prepare_map_points(df_map, max_points=5000):
@@ -528,29 +545,86 @@ else:
     """, unsafe_allow_html=True)
 
 # --- Sidebar Filters ---
-st.sidebar.markdown("## 🔍 Filtros")
+st.sidebar.markdown('<p style="font-size: 1.2rem; font-weight: 600; color: #1976D2; margin-bottom: 1.5rem;">🔍 Filtros</p>', unsafe_allow_html=True)
 
 if not df.empty:
+    # Município
+    st.sidebar.markdown('<p style="font-size: 0.85rem; font-weight: 500; color: #64748b; margin-bottom: 0.3rem;">Município</p>', unsafe_allow_html=True)
+    municipio_options = sorted(df["MUNICIPIO"].unique())
+    
+    col_m1, col_m2 = st.sidebar.columns(2)
+    with col_m1:
+        if st.button("✓ Todos", key="todos_mun", use_container_width=True):
+            st.session_state.municipios = municipio_options
+    with col_m2:
+        if st.button("✗ Limpar", key="limpar_mun", use_container_width=True):
+            st.session_state.municipios = []
+    
+    if 'municipios' not in st.session_state:
+        st.session_state.municipios = municipio_options
+    
     selected_municipio = st.sidebar.multiselect(
-        "Selecionar Município",
-        options=sorted(df["MUNICIPIO"].unique()),
-        default=sorted(df["MUNICIPIO"].unique())
+        "Selecione",
+        options=municipio_options,
+        default=st.session_state.municipios,
+        key="select_mun",
+        label_visibility="collapsed"
     )
-
+    st.session_state.municipios = selected_municipio
+    
+    st.sidebar.markdown("---")
+    
+    # Bairro
+    st.sidebar.markdown('<p style="font-size: 0.85rem; font-weight: 500; color: #64748b; margin-bottom: 0.3rem;">Bairro</p>', unsafe_allow_html=True)
+    bairro_options = sorted(df[df["MUNICIPIO"].isin(selected_municipio)]["BAIRRO"].unique())
+    
+    col_b1, col_b2 = st.sidebar.columns(2)
+    with col_b1:
+        if st.button("✓ Todos", key="todos_bairro", use_container_width=True):
+            st.session_state.bairros = bairro_options
+    with col_b2:
+        if st.button("✗ Limpar", key="limpar_bairro", use_container_width=True):
+            st.session_state.bairros = []
+    
+    if 'bairros' not in st.session_state:
+        st.session_state.bairros = bairro_options
+    
     selected_bairro = st.sidebar.multiselect(
-        "Selecionar Bairro",
-        options=sorted(df[df["MUNICIPIO"].isin(selected_municipio)]["BAIRRO"].unique()),
-        default=sorted(df[df["MUNICIPIO"].isin(selected_municipio)]["BAIRRO"].unique())
+        "Selecione",
+        options=bairro_options,
+        default=st.session_state.bairros,
+        key="select_bairro",
+        label_visibility="collapsed"
     )
+    st.session_state.bairros = selected_bairro
+    
+    st.sidebar.markdown("---")
 
     # Filtro por STATUS
     if "STATUS" in df.columns:
+        st.sidebar.markdown('<p style="font-size: 0.85rem; font-weight: 500; color: #64748b; margin-bottom: 0.3rem;">Status</p>', unsafe_allow_html=True)
         status_options = sorted([s for s in df["STATUS"].unique() if pd.notna(s)])
+        
+        col_s1, col_s2 = st.sidebar.columns(2)
+        with col_s1:
+            if st.button("✓ Todos", key="todos_status", use_container_width=True):
+                st.session_state.status = status_options
+        with col_s2:
+            if st.button("✗ Limpar", key="limpar_status", use_container_width=True):
+                st.session_state.status = []
+        
+        if 'status' not in st.session_state:
+            st.session_state.status = status_options
+        
         selected_status = st.sidebar.multiselect(
-            "Selecionar Status",
+            "Selecione",
             options=status_options,
-            default=status_options
+            default=st.session_state.status,
+            key="select_status",
+            label_visibility="collapsed"
         )
+        st.session_state.status = selected_status
+        
         df_selection = df[
             df["MUNICIPIO"].isin(selected_municipio) & 
             df["BAIRRO"].isin(selected_bairro) &
@@ -691,8 +765,8 @@ st.markdown("---")
 # --- Análise Técnica Completa ---
 st.markdown('<div class="section-title">📊 Análise Técnica e Operacional</div>', unsafe_allow_html=True)
 
-# Row 1 - Gráficos de Pizza
-col1, col2, col3, col4 = st.columns(4)
+# Row 1 - Gráficos de Pizza (3 colunas)
+col1, col2, col3 = st.columns(3)
 
 with col1:
     if not df_selection.empty and "SITUACAO_LIGACAO" in df_selection.columns:
@@ -808,191 +882,267 @@ with col3:
         )
         st.plotly_chart(fig_edificacao, use_container_width=True, key="edificacao_chart")
 
-with col4:
-    if not df_selection.empty and "PADRAO_EDIFICACAO" in df_selection.columns:
-        padrao_edif_dist = df_selection["PADRAO_EDIFICACAO"].value_counts().reset_index()
-        padrao_edif_dist.columns = ["Padrão", "Contagem"]
-        # Adicionar informação de valor absoluto ao texto
-        padrao_edif_dist['Texto'] = padrao_edif_dist.apply(
-            lambda x: f"{x['Padrão']}<br>{x['Contagem']:,.0f}".replace(',', '.') + f" registros<br>{(x['Contagem']/padrao_edif_dist['Contagem'].sum()*100):.1f}%".replace('.', ','), 
-            axis=1
-        )
-        
-        fig_padrao_edif = px.pie(
-            padrao_edif_dist,
-            values="Contagem",
-            names="Padrão",
-            title="Padrão de Edificação",
-            color_discrete_sequence=["#9C27B0", "#E91E63", "#FF5722", "#FFC107", "#4CAF50", "#2196F3"],
-            hole=0.4,
-            custom_data=['Texto']
-        )
-        fig_padrao_edif.update_layout(
-            template="plotly_white",
-            paper_bgcolor="rgba(255, 255, 255, 0.95)",
-            plot_bgcolor="rgba(255, 255, 255, 0.95)",
-            font=dict(color="#1a1a1a", size=12, family="Inter"),
-            title_font=dict(size=16, color="#1976D2", family="Inter"),
-            margin=dict(t=50, b=20, l=20, r=20),
-            showlegend=True,
-            legend=dict(font=dict(color="#64748b"))
-        )
-        fig_padrao_edif.update_traces(
-            textposition='inside',
-            texttemplate="%{value:,.0f}<br>(%{percent:.1%})",
-            textinfo='text',
-            hovertemplate="%{customdata[0]}<extra></extra>",
-            textfont_size=12
-        )
-        st.plotly_chart(fig_padrao_edif, use_container_width=True, key="padrao_edif_chart")
+st.markdown("---")
+
+# Row 2 - Padrão de Edificação (1 coluna)
+if not df_selection.empty and "PADRAO_EDIFICACAO" in df_selection.columns:
+    padrao_edif_dist = df_selection["PADRAO_EDIFICACAO"].value_counts().reset_index()
+    padrao_edif_dist.columns = ["Padrão", "Contagem"]
+    
+    # Criar gráfico de radar (rede)
+    fig_padrao_edif = go.Figure()
+    
+    fig_padrao_edif.add_trace(go.Scatterpolar(
+        r=padrao_edif_dist["Contagem"],
+        theta=padrao_edif_dist["Padrão"],
+        fill='toself',
+        fillcolor='rgba(79, 195, 247, 0.3)',
+        line=dict(color='#4FC3F7', width=2),
+        marker=dict(size=8, color='#1976D2'),
+        name='Padrão de Edificação',
+        hovertemplate="<b>%{theta}</b><br>Quantidade: %{r}<extra></extra>"
+    ))
+    
+    fig_padrao_edif.update_layout(
+        template="plotly_white",
+        paper_bgcolor="rgba(255, 255, 255, 0.95)",
+        plot_bgcolor="rgba(255, 255, 255, 0.95)",
+        font=dict(color="#1a1a1a", size=12, family="Inter"),
+        title="Padrão de Edificação",
+        title_font=dict(size=16, color="#1976D2", family="Inter"),
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                gridcolor="#E2E8F0",
+                linecolor="#E2E8F0"
+            ),
+            angularaxis=dict(
+                gridcolor="#E2E8F0",
+                linecolor="#E2E8F0"
+            ),
+            bgcolor="rgba(255, 255, 255, 0.95)"
+        ),
+        showlegend=False,
+        margin=dict(t=60, b=40, l=60, r=60),
+        height=400
+    )
+    st.plotly_chart(fig_padrao_edif, use_container_width=True, key="padrao_edif_chart")
 
 st.markdown("---")
 
-# Row 2 - Gráficos de Barras
-col4, col5 = st.columns(2)
+# Row 3 - Economias e Quadra (2 colunas)
+col5, col6_quadra = st.columns(2)
 
-with col4:
-    # Gráfico de Economias (RES, COM, PUB, IND)
-    economias_cols = ['ECONOMIAS_RES', 'ECONOMIAS_COM', 'ECONOMIAS_PUB', 'ECONOMIAS_IND']
-    economias_data = []
+with col5:
+    # Gráfico de Economias (RES, COM, PUB, IND) - Colunas Múltiplas
+    economias_cols = ['ECONOMIA_RES', 'ECONOMIA_COM', 'ECONOMIA_PUB', 'ECONOMIA_IND']
     
-    for col in economias_cols:
-        if col in df_selection.columns:
-            total = df_selection[col].sum()
-            tipo = col.replace('ECONOMIAS_', '')
-            economias_data.append({'Tipo': tipo, 'Total': total})
+    # Verificar se as colunas existem
+    cols_existentes = [col for col in economias_cols if col in df_selection.columns]
     
-    if economias_data:
-        df_economias = pd.DataFrame(economias_data)
+    if cols_existentes:
+        fig_economias = go.Figure()
         
-        fig_economias = px.bar(
-            df_economias,
-            x="Tipo",
-            y="Total",
-            title="Economias por Tipo",
-            color="Tipo",
-            color_discrete_map={
-                'RES': '#4FC3F7',
-                'COM': '#FF9800',
-                'PUB': '#66BB6A',
-                'IND': '#AB47BC'
-            }
-        )
+        # Cores para cada tipo
+        cores = {
+            'ECONOMIA_RES': '#4FC3F7',
+            'ECONOMIA_COM': '#FF9800',
+            'ECONOMIA_PUB': '#66BB6A',
+            'ECONOMIA_IND': '#AB47BC'
+        }
+        
+        nomes = {
+            'ECONOMIA_RES': 'Residencial',
+            'ECONOMIA_COM': 'Comercial',
+            'ECONOMIA_PUB': 'Público',
+            'ECONOMIA_IND': 'Industrial'
+        }
+        
+        # Adicionar uma barra para cada tipo de economia
+        for col in cols_existentes:
+            total = df_selection[col].sum()
+            tipo = nomes.get(col, col.replace('ECONOMIA_', ''))
+            
+            fig_economias.add_trace(go.Bar(
+                name=tipo,
+                x=[tipo],
+                y=[total],
+                marker_color=cores.get(col, '#808080'),
+                text=[f"{total:,.0f}".replace(',', '.')],
+                textposition='outside',
+                hovertemplate=f"<b>{tipo}</b><br>Total: {total:,.0f}".replace(',', '.') + "<extra></extra>"
+            ))
+        
         fig_economias.update_layout(
             template="plotly_white",
             paper_bgcolor="rgba(255, 255, 255, 0.95)",
             plot_bgcolor="rgba(255, 255, 255, 0.95)",
             font=dict(color="#1a1a1a", size=12, family="Inter"),
+            title="Economias por Tipo",
             title_font=dict(size=16, color="#1976D2", family="Inter"),
             xaxis_title="Tipo de Economia",
-            yaxis_title="Total",
-            showlegend=False,
+            yaxis_title="Quantidade",
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(color="#64748b")
+            ),
             xaxis=dict(gridcolor="#E2E8F0"),
             yaxis=dict(gridcolor="#E2E8F0"),
-            margin=dict(t=50, b=40, l=40, r=20)
+            margin=dict(t=100, b=40, l=40, r=20),
+            height=450,
+            barmode='group'
         )
-        fig_economias.update_traces(
-            text=df_economias['Total'].apply(lambda x: f"{x:,.0f}".replace(',', '.')),
-            textposition='outside'
-        )
+        
         st.plotly_chart(fig_economias, use_container_width=True, key="economias_chart")
 
-with col5:
+with col6_quadra:
     if not df_selection.empty and "QUADRA" in df_selection.columns:
-        quadra_dist = df_selection["QUADRA"].value_counts().reset_index()
-        quadra_dist.columns = ["Quadra", "Quantidade"]
-        quadra_dist = quadra_dist.sort_values("Quadra")
+        # Filtrar para remover "Não informado"
+        df_quadra_filtrado = df_selection[
+            (df_selection["QUADRA"].notna()) & 
+            (df_selection["QUADRA"] != "Não informado") &
+            (df_selection["QUADRA"].str.strip() != "")
+        ]
         
-        fig_quadra = px.bar(
-            quadra_dist,
-            x="Quadra",
-            y="Quantidade",
-            title="Quantitativo de Clientes por Quadra",
-            color_discrete_sequence=["#FF9800"]
-        )
-        fig_quadra.update_layout(
-            template="plotly_white",
-            paper_bgcolor="rgba(255, 255, 255, 0.95)",
-            plot_bgcolor="rgba(255, 255, 255, 0.95)",
-            font=dict(color="#1a1a1a", size=12, family="Inter"),
-            title_font=dict(size=16, color="#1976D2", family="Inter"),
-            xaxis_title="Quadra",
-            yaxis_title="Quantidade",
-            showlegend=False,
-            xaxis=dict(type="category", gridcolor="#E2E8F0"),
-            yaxis=dict(gridcolor="#E2E8F0"),
-            margin=dict(t=50, b=40, l=40, r=20)
-        )
-        st.plotly_chart(fig_quadra, use_container_width=True, key="quadra_chart")
+        if not df_quadra_filtrado.empty:
+            quadra_dist = df_quadra_filtrado["QUADRA"].value_counts().reset_index()
+            quadra_dist.columns = ["Quadra", "Quantidade"]
+            
+            # Converter quadra para string sem decimais (remover .0)
+            quadra_dist["Quadra"] = quadra_dist["Quadra"].apply(
+                lambda x: str(int(float(x))) if str(x).replace('.', '').replace('-', '').isdigit() else str(x)
+            )
+            
+            quadra_dist = quadra_dist.sort_values("Quadra")
+            
+            fig_quadra = px.bar(
+                quadra_dist,
+                x="Quadra",
+                y="Quantidade",
+                title="Quantitativo de Clientes por Quadra",
+                color_discrete_sequence=["#FF9800"]
+            )
+            fig_quadra.update_layout(
+                template="plotly_white",
+                paper_bgcolor="rgba(255, 255, 255, 0.95)",
+                plot_bgcolor="rgba(255, 255, 255, 0.95)",
+                font=dict(color="#1a1a1a", size=12, family="Inter"),
+                title_font=dict(size=16, color="#1976D2", family="Inter"),
+                xaxis_title="Quadra",
+                yaxis_title="Quantidade",
+                showlegend=False,
+                xaxis=dict(type="category", gridcolor="#E2E8F0"),
+                yaxis=dict(gridcolor="#E2E8F0"),
+                margin=dict(t=50, b=40, l=40, r=20)
+            )
+            st.plotly_chart(fig_quadra, use_container_width=True, key="quadra_chart")
 
 st.markdown("---")
 
-# Row 3 - Tipo de Visita e Padrão do Imóvel
-col6, col7 = st.columns(2)
-
-with col6:
-    if not df_selection.empty and "TIPO_VISITA" in df_selection.columns:
-        visita_dist = df_selection["TIPO_VISITA"].value_counts().reset_index()
-        visita_dist.columns = ["Tipo de Visita", "Quantidade"]
-        
-        fig_visita = go.Figure(data=[
-            go.Bar(
-                y=visita_dist["Tipo de Visita"],
-                x=visita_dist["Quantidade"],
-                orientation="h",
-                marker=dict(
-                    color="#66BB6A",
-                    line=dict(color="#4FC3F7", width=2)
-                ),
-                text=visita_dist["Quantidade"],
-                textposition="outside",
-                textfont=dict(color="#FFFFFF"),
-                hovertemplate="<b>%{y}</b><br>Quantidade: %{x}<extra></extra>"
-            )
-        ])
-        fig_visita.update_layout(
-            template="plotly_white",
-            paper_bgcolor="rgba(255, 255, 255, 0.95)",
-            plot_bgcolor="rgba(255, 255, 255, 0.95)",
-            font=dict(color="#1a1a1a", size=12, family="Inter"),
-            title="Distribuição por Tipo de Visita",
-            title_font=dict(size=16, color="#1976D2", family="Inter"),
-            xaxis_title="Quantidade",
-            yaxis_title="Tipo",
-            height=400,
-            showlegend=False,
-            yaxis={"categoryorder": "total ascending", "gridcolor": "#E2E8F0"},
-            xaxis=dict(gridcolor="#E2E8F0"),
-            margin=dict(t=50, b=40, l=20, r=40)
-        )
-        st.plotly_chart(fig_visita, use_container_width=True, key="visita_chart")
+# Row 4 - Tipo de Visita e Padrão do Imóvel (2 colunas)
+col7, col8 = st.columns(2)
 
 with col7:
-    if not df_selection.empty and "PADRAO_DO_IMOVEL" in df_selection.columns:
-        padrao_dist = df_selection["PADRAO_DO_IMOVEL"].value_counts().reset_index()
-        padrao_dist.columns = ["Padrão", "Quantidade"]
+    if not df_selection.empty and "TIPO_VISITA" in df_selection.columns:
+        # Filtrar para remover "Não informado"
+        df_visita_filtrado = df_selection[
+            (df_selection["TIPO_VISITA"].notna()) & 
+            (df_selection["TIPO_VISITA"] != "Não informado") &
+            (df_selection["TIPO_VISITA"].str.strip() != "")
+        ]
         
-        fig_padrao = px.bar(
-            padrao_dist,
-            x="Padrão",
-            y="Quantidade",
-            title="Distribuição por Padrão do Imóvel",
-            color_discrete_sequence=["#FFB74D"]
-        )
-        fig_padrao.update_layout(
-            template="plotly_white",
-            paper_bgcolor="rgba(255, 255, 255, 0.95)",
-            plot_bgcolor="rgba(255, 255, 255, 0.95)",
-            font=dict(color="#1a1a1a", size=12, family="Inter"),
-            title_font=dict(size=16, color="#1976D2", family="Inter"),
-            xaxis_title="Padrão",
-            yaxis_title="Quantidade",
-            showlegend=False,
-            xaxis=dict(gridcolor="#E2E8F0"),
-            yaxis=dict(gridcolor="#E2E8F0"),
-            margin=dict(t=50, b=40, l=40, r=20)
-        )
-        st.plotly_chart(fig_padrao, use_container_width=True, key="padrao_chart")
+        if not df_visita_filtrado.empty:
+            visita_dist = df_visita_filtrado["TIPO_VISITA"].value_counts().reset_index()
+            visita_dist.columns = ["Tipo de Visita", "Quantidade"]
+            
+            fig_visita = go.Figure(data=[
+                go.Bar(
+                    y=visita_dist["Tipo de Visita"],
+                    x=visita_dist["Quantidade"],
+                    orientation="h",
+                    marker=dict(
+                        color="#66BB6A",
+                        line=dict(color="#4FC3F7", width=2)
+                    ),
+                    text=visita_dist["Quantidade"],
+                    textposition="outside",
+                    textfont=dict(color="#FFFFFF"),
+                    hovertemplate="<b>%{y}</b><br>Quantidade: %{x}<extra></extra>"
+                )
+            ])
+            fig_visita.update_layout(
+                template="plotly_white",
+                paper_bgcolor="rgba(255, 255, 255, 0.95)",
+                plot_bgcolor="rgba(255, 255, 255, 0.95)",
+                font=dict(color="#1a1a1a", size=12, family="Inter"),
+                title="Distribuição por Tipo de Visita",
+                title_font=dict(size=16, color="#1976D2", family="Inter"),
+                xaxis_title="Quantidade",
+                yaxis_title="Tipo",
+                height=400,
+                showlegend=False,
+                yaxis={"categoryorder": "total ascending", "gridcolor": "#E2E8F0"},
+                xaxis=dict(gridcolor="#E2E8F0"),
+                margin=dict(t=50, b=40, l=20, r=40)
+            )
+            st.plotly_chart(fig_visita, use_container_width=True, key="visita_chart")
+
+with col8:
+    if not df_selection.empty and "PADRAO_DO_IMOVEL" in df_selection.columns:
+        # Filtrar para remover "Não informado"
+        df_padrao_filtrado = df_selection[
+            (df_selection["PADRAO_DO_IMOVEL"].notna()) & 
+            (df_selection["PADRAO_DO_IMOVEL"] != "Não informado") &
+            (df_selection["PADRAO_DO_IMOVEL"].str.strip() != "")
+        ]
+        
+        if not df_padrao_filtrado.empty:
+            padrao_dist = df_padrao_filtrado["PADRAO_DO_IMOVEL"].value_counts().reset_index()
+            padrao_dist.columns = ["Padrão", "Quantidade"]
+            
+            # Criar gráfico de radar (rede) para Padrão do Imóvel
+            fig_padrao = go.Figure()
+            
+            fig_padrao.add_trace(go.Scatterpolar(
+                r=padrao_dist["Quantidade"],
+                theta=padrao_dist["Padrão"],
+                fill='toself',
+                fillcolor='rgba(255, 183, 77, 0.3)',
+                line=dict(color='#FFB74D', width=2),
+                marker=dict(size=8, color='#FF9800'),
+                name='Padrão do Imóvel',
+                hovertemplate="<b>%{theta}</b><br>Quantidade: %{r}<extra></extra>"
+            ))
+            
+            fig_padrao.update_layout(
+                template="plotly_white",
+                paper_bgcolor="rgba(255, 255, 255, 0.95)",
+                plot_bgcolor="rgba(255, 255, 255, 0.95)",
+                font=dict(color="#1a1a1a", size=12, family="Inter"),
+                title="Distribuição por Padrão do Imóvel",
+                title_font=dict(size=16, color="#1976D2", family="Inter"),
+                polar=dict(
+                    radialaxis=dict(
+                        visible=True,
+                        gridcolor="#E2E8F0",
+                        linecolor="#E2E8F0"
+                    ),
+                    angularaxis=dict(
+                        gridcolor="#E2E8F0",
+                        linecolor="#E2E8F0"
+                    ),
+                    bgcolor="rgba(255, 255, 255, 0.95)"
+                ),
+                showlegend=False,
+                margin=dict(t=60, b=40, l=60, r=60),
+                height=400
+            )
+            st.plotly_chart(fig_padrao, use_container_width=True, key="padrao_chart")
 
 st.markdown("---")
 
