@@ -262,6 +262,149 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Função para mostrar loading animado
+def show_loading():
+    st.markdown("""
+        <style>
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(25, 118, 210, 0.95) 0%, rgba(33, 150, 243, 0.95) 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .loading-container {
+            text-align: center;
+            color: white;
+        }
+        
+        .loading-spinner {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            border: 6px solid rgba(255, 255, 255, 0.3);
+            border-top: 6px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        .loading-subtitle {
+            font-size: 1.1rem;
+            font-weight: 400;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+        
+        .loading-dots {
+            display: inline-block;
+        }
+        
+        .loading-dots span {
+            animation: blink 1.4s infinite;
+            animation-fill-mode: both;
+        }
+        
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes blink {
+            0%, 80%, 100% { opacity: 0; }
+            40% { opacity: 1; }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .loading-progress {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        
+        .loading-progress-bar {
+            height: 100%;
+            background: white;
+            border-radius: 2px;
+            animation: progress 2s ease-in-out infinite;
+        }
+        
+        @keyframes progress {
+            0% { width: 0%; transform: translateX(0); }
+            50% { width: 70%; transform: translateX(0); }
+            100% { width: 100%; transform: translateX(0); }
+        }
+        </style>
+        
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-container">
+                <div class="loading-spinner"></div>
+                <div class="loading-title">💧 Águas do Pará</div>
+                <div class="loading-subtitle">
+                    Carregando dados
+                    <span class="loading-dots">
+                        <span>.</span><span>.</span><span>.</span>
+                    </span>
+                </div>
+                <div class="loading-progress">
+                    <div class="loading-progress-bar"></div>
+                </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+def hide_loading():
+    st.markdown("""
+        <script>
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) {
+            overlay.style.animation = 'fadeOut 0.3s ease-out';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 300);
+        }
+        </script>
+        <style>
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
 # CSS moderno e clean - Tema Claro
 st.markdown("""
     <style>
