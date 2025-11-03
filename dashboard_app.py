@@ -1499,17 +1499,59 @@ if 'REAMBULADOR' in df_filtrado.columns and not df_filtrado.empty:
         with col_tabela:
             st.markdown("#### 📋 Ranking Completo")
             
+            # Adicionar informações de horário da primeira e última coleta
+            if 'DATA_COLETA' in df_filtrado.columns:
+                horarios_info = []
+                for reambulador in ranking['Reambulador']:
+                    df_reambulador = df_filtrado[df_filtrado['REAMBULADOR'].astype(str) == reambulador]
+                    
+                    # Obter primeira e última coleta
+                    datas_validas = df_reambulador['DATA_COLETA'].dropna()
+                    
+                    if len(datas_validas) > 0:
+                        primeira_coleta = datas_validas.min()
+                        ultima_coleta = datas_validas.max()
+                        
+                        # Extrair apenas a hora
+                        hora_primeira = primeira_coleta.strftime('%H:%M') if pd.notna(primeira_coleta) else 'N/A'
+                        hora_ultima = ultima_coleta.strftime('%H:%M') if pd.notna(ultima_coleta) else 'N/A'
+                        
+                        horarios_info.append(f"{hora_primeira} - {hora_ultima}")
+                    else:
+                        horarios_info.append('N/A')
+                
+                # Criar coluna com nome e horários
+                ranking_display = ranking.copy()
+                ranking_display['Horários'] = horarios_info
+            else:
+                ranking_display = ranking.copy()
+            
             # Adicionar posição no ranking
-            ranking_display = ranking.copy()
             ranking_display.insert(0, 'Posição', range(1, len(ranking_display) + 1))
+            
             # Mostrar apenas top 100 na tabela para evitar envio massivo ao frontend
             max_show = 100
-            st.dataframe(
-                ranking_display.head(max_show),
-                hide_index=True,
-                use_container_width=True,
-                height=max(400, min(len(ranking), max_show) * 35 + 38)
-            )
+            
+            # Aplicar estilo para destacar horários em vermelho
+            def highlight_horarios(row):
+                if 'Horários' in row.index:
+                    return [''] * (len(row) - 1) + ['color: #EF5350; font-weight: bold;']
+                return [''] * len(row)
+            
+            if 'Horários' in ranking_display.columns:
+                st.dataframe(
+                    ranking_display.head(max_show).style.apply(highlight_horarios, axis=1),
+                    hide_index=True,
+                    use_container_width=True,
+                    height=max(400, min(len(ranking), max_show) * 35 + 38)
+                )
+            else:
+                st.dataframe(
+                    ranking_display.head(max_show),
+                    hide_index=True,
+                    use_container_width=True,
+                    height=max(400, min(len(ranking), max_show) * 35 + 38)
+                )
 
             # Oferecer download do CSV completo
             try:
