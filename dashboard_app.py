@@ -844,6 +844,16 @@ with col_kpi4:
         # Selecionar apenas as matrículas que aparecem mais de uma vez
         matriculas_duplicadas = contagem_matriculas[contagem_matriculas > 1].sum() - len(contagem_matriculas[contagem_matriculas > 1])
         
+        # Criar DataFrame com todas as matrículas duplicadas e seus dados completos
+        matriculas_dup_list = contagem_matriculas[contagem_matriculas > 1].index.tolist()
+        df_duplicadas_completo = df_matriculas_validas[df_matriculas_validas['MATRICULA'].isin(matriculas_dup_list)].copy()
+        
+        # Ordenar por matrícula para facilitar visualização
+        df_duplicadas_completo = df_duplicadas_completo.sort_values('MATRICULA')
+        
+        # Adicionar coluna com contagem de ocorrências
+        df_duplicadas_completo['TOTAL_OCORRENCIAS'] = df_duplicadas_completo['MATRICULA'].map(contagem_matriculas)
+        
         # Debug info
         st.sidebar.markdown("### Informações de Validação")
         with st.sidebar.expander("Detalhes de Matrículas Duplicadas"):
@@ -851,6 +861,107 @@ with col_kpi4:
             duplicatas = contagem_matriculas[contagem_matriculas > 1].to_dict()
             for mat, count in duplicatas.items():
                 st.write(f"Matrícula {mat}: {count} ocorrências")
+            
+            st.markdown("---")
+            
+            # Botão para baixar relatório completo de duplicidades
+            if not df_duplicadas_completo.empty:
+                st.markdown("#### 📥 Baixar Relatório de Duplicidades")
+                
+                # Preparar DataFrame organizado para exportação
+                df_export = df_duplicadas_completo.copy()
+                
+                # Reorganizar colunas para melhor visualização
+                colunas_prioritarias = ['MATRICULA', 'TOTAL_OCORRENCIAS', 'MUNICIPIO', 'BAIRRO', 'LOGRADOURO', 
+                                       'TIPO_CADASTRO', 'STATUS', 'SITUACAO_LIGACAO', 'REAMBULADOR']
+                
+                # Adicionar colunas prioritárias que existem no DataFrame
+                colunas_ordenadas = [col for col in colunas_prioritarias if col in df_export.columns]
+                
+                # Adicionar demais colunas
+                outras_colunas = [col for col in df_export.columns if col not in colunas_ordenadas]
+                colunas_finais = colunas_ordenadas + outras_colunas
+                
+                df_export = df_export[colunas_finais]
+                
+                # Criar arquivo Excel em memória
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    df_export.to_excel(writer, index=False, sheet_name='Matrículas Duplicadas')
+                    
+                    # Obter a planilha para formatação
+                    workbook = writer.book
+                    worksheet = writer.sheets['Matrículas Duplicadas']
+                    
+                    # Formatar cabeçalho
+                    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+                    
+                    header_fill = PatternFill(start_color='1976D2', end_color='1976D2', fill_type='solid')
+                    header_font = Font(bold=True, color='FFFFFF', size=11)
+                    header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                    
+                    # Aplicar estilo ao cabeçalho
+                    for cell in worksheet[1]:
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.alignment = header_alignment
+                    
+                    # Ajustar largura das colunas
+                    for column in worksheet.columns:
+                        max_length = 0
+                        column_letter = column[0].column_letter
+                        
+                        for cell in column:
+                            try:
+                                if len(str(cell.value)) > max_length:
+                                    max_length = len(str(cell.value))
+                            except:
+                                pass
+                        
+                        adjusted_width = min(max_length + 2, 50)
+                        worksheet.column_dimensions[column_letter].width = adjusted_width
+                    
+                    # Aplicar bordas e alinhamento aos dados
+                    thin_border = Border(
+                        left=Side(style='thin', color='E2E8F0'),
+                        right=Side(style='thin', color='E2E8F0'),
+                        top=Side(style='thin', color='E2E8F0'),
+                        bottom=Side(style='thin', color='E2E8F0')
+                    )
+                    
+                    data_alignment = Alignment(horizontal='left', vertical='center')
+                    
+                    for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, 
+                                                   min_col=1, max_col=worksheet.max_column):
+                        for cell in row:
+                            cell.border = thin_border
+                            cell.alignment = data_alignment
+                    
+                    # Destacar coluna TOTAL_OCORRENCIAS
+                    if 'TOTAL_OCORRENCIAS' in df_export.columns:
+                        col_idx = df_export.columns.get_loc('TOTAL_OCORRENCIAS') + 1
+                        highlight_fill = PatternFill(start_color='FFF3E0', end_color='FFF3E0', fill_type='solid')
+                        
+                        for row in range(2, worksheet.max_row + 1):
+                            cell = worksheet.cell(row=row, column=col_idx)
+                            cell.fill = highlight_fill
+                            cell.font = Font(bold=True, color='E65100')
+                    
+                    # Congelar primeira linha
+                    worksheet.freeze_panes = 'A2'
+                
+                excel_data = output.getvalue()
+                
+                st.download_button(
+                    label="📊 Baixar Relatório Excel Formatado",
+                    data=excel_data,
+                    file_name=f'relatorio_matriculas_duplicadas_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx',
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    help=f"Baixar relatório formatado com {len(df_duplicadas_completo)} registros de {len(matriculas_dup_list)} matrículas duplicadas",
+                    use_container_width=True
+                )
+                
+                st.info(f"📊 Total: {len(df_duplicadas_completo)} registros de {len(matriculas_dup_list)} matrículas duplicadas")
     else:
         matriculas_duplicadas = 0
     matriculas_duplicadas_fmt = f"{matriculas_duplicadas:,.0f}".replace(',', '.')
