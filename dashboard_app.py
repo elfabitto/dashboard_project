@@ -708,9 +708,11 @@ if not df.empty:
     with col_m1:
         if st.button("✓ Todos", key="todos_mun", use_container_width=True):
             st.session_state.municipios = municipio_options
+            st.rerun()
     with col_m2:
         if st.button("✗ Limpar", key="limpar_mun", use_container_width=True):
             st.session_state.municipios = []
+            st.rerun()
     
     if 'municipios' not in st.session_state:
         st.session_state.municipios = municipio_options
@@ -734,9 +736,11 @@ if not df.empty:
     with col_b1:
         if st.button("✓ Todos", key="todos_bairro", use_container_width=True):
             st.session_state.bairros = bairro_options
+            st.rerun()
     with col_b2:
         if st.button("✗ Limpar", key="limpar_bairro", use_container_width=True):
             st.session_state.bairros = []
+            st.rerun()
     
     if 'bairros' not in st.session_state:
         st.session_state.bairros = bairro_options
@@ -761,9 +765,11 @@ if not df.empty:
         with col_s1:
             if st.button("✓ Todos", key="todos_status", use_container_width=True):
                 st.session_state.status = status_options
+                st.rerun()
         with col_s2:
             if st.button("✗ Limpar", key="limpar_status", use_container_width=True):
                 st.session_state.status = []
+                st.rerun()
         
         if 'status' not in st.session_state:
             st.session_state.status = status_options
@@ -785,7 +791,7 @@ if not df.empty:
     else:
         df_selection = df[df["MUNICIPIO"].isin(selected_municipio) & df["BAIRRO"].isin(selected_bairro)]
 else:
-    st.error("Não foi possível carregar os dados.")
+    st.info("📤 Faça upload da sua base de dados usando o menu lateral para começar a análise.")
     st.stop()
 
 # --- KPI Metrics Section ---
