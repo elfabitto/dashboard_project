@@ -1664,13 +1664,107 @@ if 'REAMBULADOR' in df_filtrado.columns and not df_filtrado.empty:
                     height=max(400, min(len(ranking), max_show) * 35 + 38)
                 )
 
-            # Oferecer download do CSV completo
+            # Oferecer download do Excel completo e formatado
             try:
-                csv_bytes = ranking.to_csv(index=False).encode('utf-8')
-                st.download_button("📥 Baixar CSV (completo)", csv_bytes, file_name='ranking_reambulador.csv', mime='text/csv')
-            except Exception:
-                # se algo falhar, apenas permitir copiar por clipboard
-                st.markdown("Não foi possível gerar o arquivo para download.")
+                # Preparar DataFrame para exportação
+                df_export = ranking_display.copy()
+                
+                # Criar arquivo Excel em memória
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    df_export.to_excel(writer, index=False, sheet_name='Ranking Reambuladores')
+                    
+                    # Obter a planilha para formatação
+                    workbook = writer.book
+                    worksheet = writer.sheets['Ranking Reambuladores']
+                    
+                    # Importar estilos do openpyxl
+                    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+                    
+                    # Formatar cabeçalho
+                    header_fill = PatternFill(start_color='1976D2', end_color='1976D2', fill_type='solid')
+                    header_font = Font(bold=True, color='FFFFFF', size=12)
+                    header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                    
+                    # Aplicar estilo ao cabeçalho
+                    for cell in worksheet[1]:
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.alignment = header_alignment
+                    
+                    # Ajustar largura das colunas
+                    column_widths = {
+                        'A': 10,  # Posição
+                        'B': 35,  # Reambulador
+                        'C': 18,  # Número de Visitas
+                    }
+                    
+                    if 'Horários' in df_export.columns:
+                        column_widths['D'] = 20  # Horários
+                    
+                    for col_letter, width in column_widths.items():
+                        worksheet.column_dimensions[col_letter].width = width
+                    
+                    # Aplicar bordas e alinhamento aos dados
+                    thin_border = Border(
+                        left=Side(style='thin', color='E2E8F0'),
+                        right=Side(style='thin', color='E2E8F0'),
+                        top=Side(style='thin', color='E2E8F0'),
+                        bottom=Side(style='thin', color='E2E8F0')
+                    )
+                    
+                    # Estilos para diferentes colunas
+                    center_alignment = Alignment(horizontal='center', vertical='center')
+                    left_alignment = Alignment(horizontal='left', vertical='center')
+                    right_alignment = Alignment(horizontal='right', vertical='center')
+                    
+                    # Aplicar formatação às células de dados
+                    for row_idx, row in enumerate(worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, 
+                                                   min_col=1, max_col=worksheet.max_column), start=2):
+                        for col_idx, cell in enumerate(row, start=1):
+                            cell.border = thin_border
+                            
+                            # Posição - centralizado
+                            if col_idx == 1:
+                                cell.alignment = center_alignment
+                                cell.font = Font(bold=True, color='1976D2', size=11)
+                            # Reambulador - esquerda
+                            elif col_idx == 2:
+                                cell.alignment = left_alignment
+                                cell.font = Font(size=11)
+                            # Número de Visitas - direita
+                            elif col_idx == 3:
+                                cell.alignment = right_alignment
+                                cell.font = Font(bold=True, size=11)
+                            # Horários - centralizado e vermelho
+                            elif col_idx == 4 and 'Horários' in df_export.columns:
+                                cell.alignment = center_alignment
+                                cell.font = Font(color='EF5350', bold=True, size=10)
+                    
+                    # Congelar primeira linha (cabeçalho)
+                    worksheet.freeze_panes = 'A2'
+                    
+                    # Adicionar filtros automáticos
+                    worksheet.auto_filter.ref = worksheet.dimensions
+                
+                excel_data = output.getvalue()
+                
+                st.download_button(
+                    label="📊 Baixar Excel Formatado",
+                    data=excel_data,
+                    file_name=f'ranking_reambuladores_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx',
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    help=f"Baixar ranking completo com {len(ranking)} reambuladores em formato Excel organizado",
+                    use_container_width=True
+                )
+            except Exception as e:
+                st.error(f"Erro ao gerar arquivo Excel: {str(e)}")
+                # Fallback para CSV
+                try:
+                    csv_bytes = ranking.to_csv(index=False).encode('utf-8')
+                    st.download_button("📥 Baixar CSV (alternativo)", csv_bytes, file_name='ranking_reambulador.csv', mime='text/csv')
+                except Exception:
+                    st.markdown("Não foi possível gerar o arquivo para download.")
     else:
         st.warning("Não há dados de reambuladores para o período selecionado")
 else:
