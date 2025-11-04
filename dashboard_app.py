@@ -10,6 +10,7 @@ import tempfile
 import os
 import io
 import time
+import pytz
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1446,9 +1447,21 @@ with col_filtro1:
 # Converter DATA_COLETA para datetime se existir
 if 'DATA_COLETA' in df_selection.columns:
     df_selection_copy = df_selection.copy()
+    # Definir fuso horário do Brasil
+    tz_brasil = pytz.timezone('America/Sao_Paulo')
+    
+    # Converter DATA_COLETA para datetime com fuso horário do Brasil
     df_selection_copy['DATA_COLETA'] = pd.to_datetime(df_selection_copy['DATA_COLETA'], errors='coerce')
-    hoje = date.today()
-    hoje = pd.Timestamp.now().date()
+    
+    # Se a coluna não tem timezone, localizar para o Brasil
+    if df_selection_copy['DATA_COLETA'].dt.tz is None:
+        df_selection_copy['DATA_COLETA'] = df_selection_copy['DATA_COLETA'].dt.tz_localize(tz_brasil, ambiguous='NaT', nonexistent='NaT')
+    else:
+        # Se já tem timezone, converter para o Brasil
+        df_selection_copy['DATA_COLETA'] = df_selection_copy['DATA_COLETA'].dt.tz_convert(tz_brasil)
+    
+    # Obter data de hoje no fuso horário do Brasil
+    hoje = datetime.now(tz_brasil).date()
     
     if tipo_filtro == "Hoje":
         # Filtrar para registros de hoje
@@ -1786,7 +1799,7 @@ st.markdown(f"""
         </div>
         <div class="footer-stat">
             <div class="footer-stat-label">Última Atualização</div>
-            <div class="footer-stat-value">{datetime.now().strftime('%d/%m/%Y %H:%M')}</div>
+            <div class="footer-stat-value">{datetime.now(pytz.timezone('America/Sao_Paulo')).strftime('%d/%m/%Y %H:%M')}</div>
         </div>
     </div>
 """, unsafe_allow_html=True)
